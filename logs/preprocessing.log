@@ -1,0 +1,72 @@
+2026-07-22 13:17:10,234 - INFO - ============================================================
+2026-07-22 13:17:10,234 - INFO - PDF METİN ÇIKARMA VE TEMİZLEME BAŞLATILDI
+2026-07-22 13:17:10,235 - INFO - ============================================================
+2026-07-22 13:17:10,235 - INFO - Toplam 10 PDF bulundu.
+2026-07-22 13:17:10,235 - INFO - ------------------------------------------------------------
+2026-07-22 13:17:10,235 - INFO - İşleniyor: cevre_bakanlik_cevre-sorunlari-ve-oncelikleri.pdf
+2026-07-22 13:17:59,086 - INFO - BAŞARILI: cevre_bakanlik_cevre-sorunlari-ve-oncelikleri.pdf
+2026-07-22 13:17:59,088 - INFO - Ham karakter sayısı: 346069
+2026-07-22 13:17:59,088 - INFO - Temiz karakter sayısı: 237217
+2026-07-22 13:17:59,089 - INFO - Kaydedildi: data\clean\cevre_bakanlik_cevre-sorunlari-ve-oncelikleri.txt
+2026-07-22 13:17:59,089 - INFO - ------------------------------------------------------------
+2026-07-22 13:17:59,090 - INFO - İşleniyor: dil_tdk_2024-faaliyet-raporu.pdf
+2026-07-22 13:18:10,830 - INFO - BAŞARILI: dil_tdk_2024-faaliyet-raporu.pdf
+2026-07-22 13:18:10,831 - INFO - Ham karakter sayısı: 289776
+2026-07-22 13:18:10,831 - INFO - Temiz karakter sayısı: 285331
+2026-07-22 13:18:10,832 - INFO - Kaydedildi: data\clean\dil_tdk_2024-faaliyet-raporu.txt
+2026-07-22 13:18:10,832 - INFO - ------------------------------------------------------------
+2026-07-22 13:18:10,832 - INFO - İşleniyor: egitim_meb_2024-faaliyet-raporu.pdf
+2026-07-22 13:18:39,412 - INFO - BAŞARILI: egitim_meb_2024-faaliyet-raporu.pdf
+2026-07-22 13:18:39,412 - INFO - Ham karakter sayısı: 671854
+2026-07-22 13:18:39,412 - INFO - Temiz karakter sayısı: 663379
+2026-07-22 13:18:39,412 - INFO - Kaydedildi: data\clean\egitim_meb_2024-faaliyet-raporu.txt
+2026-07-22 13:18:39,413 - INFO - ------------------------------------------------------------
+2026-07-22 13:18:39,413 - INFO - İşleniyor: enerji_etkb_2024-faaliyet-raporu.pdf
+2026-07-22 13:18:46,679 - INFO - BAŞARILI: enerji_etkb_2024-faaliyet-raporu.pdf
+2026-07-22 13:18:46,679 - INFO - Ham karakter sayısı: 531466
+2026-07-22 13:18:46,679 - INFO - Temiz karakter sayısı: 522727
+2026-07-22 13:18:46,679 - INFO - Kaydedildi: data\clean\enerji_etkb_2024-faaliyet-raporu.txt
+2026-07-22 13:18:46,680 - INFO - ------------------------------------------------------------
+2026-07-22 13:18:46,680 - INFO - İşleniyor: gida_tarimorman_gida-okuryazarligi-2022-2028.pdf
+2026-07-22 13:18:47,909 - INFO - BAŞARILI: gida_tarimorman_gida-okuryazarligi-2022-2028.pdf
+2026-07-22 13:18:47,909 - INFO - Ham karakter sayısı: 121967
+2026-07-22 13:18:47,909 - INFO - Temiz karakter sayısı: 119703
+2026-07-22 13:18:47,909 - INFO - Kaydedildi: data\clean\gida_tarimorman_gida-okuryazarligi-2022-2028.txt
+2026-07-22 13:18:47,910 - INFO - ------------------------------------------------------------
+2026-07-22 13:18:47,910 - INFO - İşleniyor: siber_guvenlik_msu_milli-guvenlik.pdf
+2026-07-22 13:18:49,751 - INFO - BAŞARILI: siber_guvenlik_msu_milli-guvenlik.pdf
+2026-07-22 13:18:49,751 - INFO - Ham karakter sayısı: 80625
+2026-07-22 13:18:49,752 - INFO - Temiz karakter sayısı: 76166
+2026-07-22 13:18:49,752 - INFO - Kaydedildi: data\clean\siber_guvenlik_msu_milli-guvenlik.txt
+2026-07-22 13:18:49,752 - INFO - ------------------------------------------------------------
+2026-07-22 13:18:49,752 - INFO - İşleniyor: tarim_bakanlik_iklim-degisikligi-ve-tarim.pdf
+2026-07-22 13:18:51,275 - INFO - BAŞARILI: tarim_bakanlik_iklim-degisikligi-ve-tarim.pdf
+2026-07-22 13:18:51,275 - INFO - Ham karakter sayısı: 227846
+2026-07-22 13:18:51,275 - INFO - Temiz karakter sayısı: 225997
+2026-07-22 13:18:51,275 - INFO - Kaydedildi: data\clean\tarim_bakanlik_iklim-degisikligi-ve-tarim.txt
+2026-07-22 13:18:51,275 - INFO - ------------------------------------------------------------
+2026-07-22 13:18:51,276 - INFO - İşleniyor: tuketici_ticaretbakanligi_tuketici-bilinc-duzeyi.pdf
+2026-07-22 13:18:56,900 - INFO - BAŞARILI: tuketici_ticaretbakanligi_tuketici-bilinc-duzeyi.pdf
+2026-07-22 13:18:56,900 - INFO - Ham karakter sayısı: 231879
+2026-07-22 13:18:56,900 - INFO - Temiz karakter sayısı: 228012
+2026-07-22 13:18:56,900 - INFO - Kaydedildi: data\clean\tuketici_ticaretbakanligi_tuketici-bilinc-duzeyi.txt
+2026-07-22 13:18:56,901 - INFO - ------------------------------------------------------------
+2026-07-22 13:18:56,901 - INFO - İşleniyor: uzay_tubitak_havacilik-ve-uzay.pdf
+2026-07-22 13:19:05,702 - INFO - BAŞARILI: uzay_tubitak_havacilik-ve-uzay.pdf
+2026-07-22 13:19:05,702 - INFO - Ham karakter sayısı: 381076
+2026-07-22 13:19:05,703 - INFO - Temiz karakter sayısı: 366398
+2026-07-22 13:19:05,703 - INFO - Kaydedildi: data\clean\uzay_tubitak_havacilik-ve-uzay.txt
+2026-07-22 13:19:05,703 - INFO - ------------------------------------------------------------
+2026-07-22 13:19:05,703 - INFO - İşleniyor: yapayzeka_ulusal-yapay-zeka-stratejisi.pdf
+2026-07-22 13:19:09,767 - INFO - BAŞARILI: yapayzeka_ulusal-yapay-zeka-stratejisi.pdf
+2026-07-22 13:19:09,767 - INFO - Ham karakter sayısı: 217551
+2026-07-22 13:19:09,768 - INFO - Temiz karakter sayısı: 214488
+2026-07-22 13:19:09,768 - INFO - Kaydedildi: data\clean\yapayzeka_ulusal-yapay-zeka-stratejisi.txt
+2026-07-22 13:19:09,768 - INFO - ============================================================
+2026-07-22 13:19:09,768 - INFO - PREPROCESSING ÖZETİ
+2026-07-22 13:19:09,768 - INFO - ============================================================
+2026-07-22 13:19:09,768 - INFO - Toplam belge : 10
+2026-07-22 13:19:09,769 - INFO - Başarılı     : 10
+2026-07-22 13:19:09,769 - INFO - Hatalı       : 0
+2026-07-22 13:19:09,769 - INFO - ============================================================
+2026-07-22 13:19:09,769 - INFO - Tüm belgeler başarıyla işlendi.
