@@ -16,6 +16,11 @@ STRATEGIES = [
         "file": Path("data/chunks/chunks_500_100.json"),
         "chunk_size": 500,
         "overlap": 100
+    },
+    {
+        "file": Path("data/chunks/chunks_800_150.json"),
+        "chunk_size": 800,
+        "overlap": 150
     }
 ]
 

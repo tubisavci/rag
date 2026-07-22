@@ -15,8 +15,8 @@ CLEAN_DATA_DIR = Path("data/clean")
 CHUNKS_DATA_DIR = Path("data/chunks")
 
 # Gün 13 chunking stratejisi
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
+CHUNK_SIZE = 800
+CHUNK_OVERLAP = 150
 
 # Ayarlara göre çıktı dosyasının adı otomatik oluşturulur.
 OUTPUT_FILE = (
