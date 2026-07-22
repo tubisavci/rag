@@ -14,10 +14,15 @@ MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 CLEAN_DATA_DIR = Path("data/clean")
 CHUNKS_DATA_DIR = Path("data/chunks")
 
-OUTPUT_FILE = CHUNKS_DATA_DIR / "chunks_300_50.json"
+# Gün 13 chunking stratejisi
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 100
 
-CHUNK_SIZE = 300
-CHUNK_OVERLAP = 50
+# Ayarlara göre çıktı dosyasının adı otomatik oluşturulur.
+OUTPUT_FILE = (
+    CHUNKS_DATA_DIR
+    / f"chunks_{CHUNK_SIZE}_{CHUNK_OVERLAP}.json"
+)
 
 
 # ---------------------------------------------------------
@@ -26,7 +31,9 @@ CHUNK_OVERLAP = 50
 
 print("Tokenizer yükleniyor...")
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+tokenizer = AutoTokenizer.from_pretrained(
+    MODEL_NAME
+)
 
 print("Tokenizer başarıyla yüklendi.")
 
@@ -53,7 +60,13 @@ splitter = RecursiveCharacterTextSplitter(
     chunk_size=CHUNK_SIZE,
     chunk_overlap=CHUNK_OVERLAP,
     length_function=token_length,
-    separators=["\n\n", "\n", ". ", " ", ""]
+    separators=[
+        "\n\n",
+        "\n",
+        ". ",
+        " ",
+        ""
+    ]
 )
 
 
@@ -63,40 +76,64 @@ splitter = RecursiveCharacterTextSplitter(
 
 def main():
 
+    # Çıktı klasörü yoksa oluştur.
     CHUNKS_DATA_DIR.mkdir(
         parents=True,
         exist_ok=True
     )
 
+    # Temizlenmiş TXT belgelerini bul.
     txt_files = sorted(
         CLEAN_DATA_DIR.glob("*.txt")
     )
 
     print("\n" + "=" * 60)
-    print("300 TOKEN / 50 OVERLAP CHUNKING")
+
+    print(
+        f"{CHUNK_SIZE} TOKEN / "
+        f"{CHUNK_OVERLAP} OVERLAP CHUNKING"
+    )
+
     print("=" * 60)
 
-    print(f"\nBulunan TXT sayısı: {len(txt_files)}")
+    print(
+        f"\nBulunan TXT sayısı: "
+        f"{len(txt_files)}"
+    )
 
     all_chunks = []
 
     global_chunk_id = 0
 
+    # -----------------------------------------------------
+    # BELGELERİ CHUNK'LARA AYIR
+    # -----------------------------------------------------
+
     for txt_path in txt_files:
 
         print("\n" + "-" * 60)
-        print(f"İşleniyor: {txt_path.name}")
+
+        print(
+            f"İşleniyor: "
+            f"{txt_path.name}"
+        )
 
         text = txt_path.read_text(
             encoding="utf-8"
         )
 
-        chunks = splitter.split_text(text)
+        chunks = splitter.split_text(
+            text
+        )
 
         print(
             f"Oluşturulan chunk sayısı: "
             f"{len(chunks)}"
         )
+
+        # -------------------------------------------------
+        # CHUNK METADATA
+        # -------------------------------------------------
 
         for chunk_index, chunk in enumerate(chunks):
 
@@ -108,7 +145,9 @@ def main():
                 "text": chunk
             }
 
-            all_chunks.append(chunk_data)
+            all_chunks.append(
+                chunk_data
+            )
 
             global_chunk_id += 1
 
@@ -128,8 +167,14 @@ def main():
             indent=2
         )
 
+    # -----------------------------------------------------
+    # SONUÇ
+    # -----------------------------------------------------
+
     print("\n" + "=" * 60)
+
     print("CHUNKING TAMAMLANDI")
+
     print("=" * 60)
 
     print(

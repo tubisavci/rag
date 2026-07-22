@@ -2,58 +2,111 @@ import json
 from pathlib import Path
 
 
-CHUNKS_FILE = Path("data/chunks/chunks_300_50.json")
-MAX_TOKEN_COUNT = 300
+# ---------------------------------------------------------
+# TEST EDİLECEK CHUNK STRATEJİLERİ
+# ---------------------------------------------------------
+
+STRATEGIES = [
+    {
+        "file": Path("data/chunks/chunks_300_50.json"),
+        "chunk_size": 300,
+        "overlap": 50
+    },
+    {
+        "file": Path("data/chunks/chunks_500_100.json"),
+        "chunk_size": 500,
+        "overlap": 100
+    }
+]
+
 EXPECTED_SOURCE_COUNT = 10
 
 
-def main():
+# ---------------------------------------------------------
+# STRATEJİ TESTİ
+# ---------------------------------------------------------
 
-    with CHUNKS_FILE.open(
+def test_strategy(strategy):
+
+    chunks_file = strategy["file"]
+    max_token_count = strategy["chunk_size"]
+    overlap = strategy["overlap"]
+
+    print("\n" + "=" * 60)
+
+    print(
+        f"{max_token_count}/{overlap} "
+        f"CHUNK KALİTE KONTROLÜ"
+    )
+
+    print("=" * 60)
+
+    # JSON dosyasını oku.
+    with chunks_file.open(
         "r",
         encoding="utf-8"
     ) as file:
+
         chunks = json.load(file)
 
-    print("=" * 60)
-    print("300/50 CHUNK KALİTE KONTROLÜ")
-    print("=" * 60)
-
-    print(f"\nToplam chunk sayısı: {len(chunks)}")
-
+    # Kaynak belgeleri bul.
     sources = {
         chunk["source"]
         for chunk in chunks
     }
 
-    print(f"Kaynak belge sayısı: {len(sources)}")
-
+    # Token sayılarını al.
     token_counts = [
         chunk["token_count"]
         for chunk in chunks
     ]
 
-    print(f"En küçük chunk: {min(token_counts)} token")
-    print(f"En büyük chunk: {max(token_counts)} token")
-
-    average = sum(token_counts) / len(token_counts)
-
-    print(f"Ortalama chunk: {average:.2f} token")
-
+    # Maksimum sınırı aşan chunk'lar.
     oversized_chunks = [
         chunk
         for chunk in chunks
-        if chunk["token_count"] > MAX_TOKEN_COUNT
+        if chunk["token_count"] > max_token_count
     ]
 
+    # Boş chunk'lar.
     empty_chunks = [
         chunk
         for chunk in chunks
         if not chunk["text"].strip()
     ]
 
+    # İstatistikler.
+    minimum = min(token_counts)
+    maximum = max(token_counts)
+    average = sum(token_counts) / len(token_counts)
+
     print(
-        f"300 tokenı aşan chunk: "
+        f"\nToplam chunk sayısı: "
+        f"{len(chunks)}"
+    )
+
+    print(
+        f"Kaynak belge sayısı: "
+        f"{len(sources)}"
+    )
+
+    print(
+        f"En küçük chunk: "
+        f"{minimum} token"
+    )
+
+    print(
+        f"En büyük chunk: "
+        f"{maximum} token"
+    )
+
+    print(
+        f"Ortalama chunk: "
+        f"{average:.2f} token"
+    )
+
+    print(
+        f"{max_token_count} tokenı aşan chunk: "
         f"{len(oversized_chunks)}"
     )
 
@@ -70,10 +123,25 @@ def main():
         and len(empty_chunks) == 0
     ):
         print("SONUÇ: BAŞARILI ✅")
+
     else:
         print("SONUÇ: KONTROL GEREKİYOR ❌")
 
     print("-" * 60)
+
+
+# ---------------------------------------------------------
+# ANA PROGRAM
+# ---------------------------------------------------------
+
+def main():
+
+    print("=" * 60)
+    print("CHUNK STRATEJİLERİ KALİTE KONTROLÜ")
+    print("=" * 60)
+
+    for strategy in STRATEGIES:
+        test_strategy(strategy)
 
 
 if __name__ == "__main__":
