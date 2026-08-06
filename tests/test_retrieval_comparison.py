@@ -1,9 +1,10 @@
 """
-Semantic Search ve BM25 Retrieval Karşılaştırması
+Semantic Search - BM25 - Hybrid Search Benchmark
 
-20. Gün Benchmark Testi
+22. Gün
 """
 
+import csv
 import json
 import re
 import time
@@ -15,17 +16,19 @@ from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
 # --------------------------------------------------
-# AYARLAR
+# SETTINGS
 # --------------------------------------------------
 
 MODEL_NAME = "BAAI/bge-m3"
 
 CHUNK_STRATEGY = "300_50"
 
-TOP_K = 1
+TOP_K = 5
+
+RRF_K = 60
 
 # --------------------------------------------------
-# PATHLER
+# PATHS
 # --------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -42,77 +45,72 @@ METADATA_PATH = (
     / f"metadata_bge_m3_{CHUNK_STRATEGY}.json"
 )
 
-
+CSV_PATH = (
+    PROJECT_ROOT
+    / "benchmark_results.csv"
+)
 
 # --------------------------------------------------
-# TEST SORULARI
+# TEST QUERIES
 # --------------------------------------------------
 
 TEST_QUERIES = [
 
-    {
-        "question": "Türkiye'nin çevre sorunları nelerdir?",
-        "expected": "cevre_bakanlik",
-    },
+    (
+        "Türkiye'nin çevre sorunları nelerdir?",
+        "cevre_bakanlik",
+    ),
 
-    {
-        "question": "Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?",
-        "expected": "egitim_meb",
-    },
+    (
+        "Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?",
+        "egitim_meb",
+    ),
 
-    {
-        "question": "Enerji verimliliği neden önemlidir?",
-        "expected": "enerji_etkb",
-    },
+    (
+        "Enerji verimliliği neden önemlidir?",
+        "enerji_etkb",
+    ),
 
-    {
-        "question": "Gıda okuryazarlığı nedir?",
-        "expected": "gida_tarimorman",
-    },
+    (
+        "Gıda okuryazarlığı nedir?",
+        "gida_tarimorman",
+    ),
 
-    {
-        "question": "Siber güvenlik nedir?",
-        "expected": "siber_guvenlik",
-    },
+    (
+        "Siber güvenlik nedir?",
+        "siber_guvenlik",
+    ),
 
-    {
-        "question": "İklim değişikliğinin tarıma etkileri nelerdir?",
-        "expected": "tarim_bakanlik",
-    },
+    (
+        "İklim değişikliğinin tarıma etkileri nelerdir?",
+        "tarim_bakanlik",
+    ),
 
-    {
-        "question": "Tüketici haklarının amacı nedir?",
-        "expected": "tuketici_ticaretbakanligi",
-    },
+    (
+        "Tüketici haklarının amacı nedir?",
+        "tuketici_ticaretbakanligi",
+    ),
 
-    {
-        "question": "Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?",
-        "expected": "uzay_tubitak",
-    },
+    (
+        "Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?",
+        "uzay_tubitak",
+    ),
 
-    {
-        "question": "Ulusal Yapay Zeka Stratejisinin amacı nedir?",
-        "expected": "yapayzeka",
-    },
+    (
+        "Ulusal Yapay Zeka Stratejisinin amacı nedir?",
+        "yapayzeka",
+    ),
 
-    {
-        "question": "Türk Dil Kurumunun faaliyetleri nelerdir?",
-        "expected": "dil_tdk",
-    },
+    (
+        "Türk Dil Kurumunun faaliyetleri nelerdir?",
+        "dil_tdk",
+    ),
 
 ]
 
 print("=" * 70)
-print("RETRIEVAL KARŞILAŞTIRMA TESTİ")
+print("SEMANTIC - BM25 - HYBRID BENCHMARK")
 print("=" * 70)
-
-print(f"\nModel            : {MODEL_NAME}")
-print(f"Chunk Stratejisi : {CHUNK_STRATEGY}")
-print(f"Toplam Test      : {len(TEST_QUERIES)}")
-
-# --------------------------------------------------
-# METADATA
-# --------------------------------------------------
 
 print("\nMetadata yükleniyor...")
 
@@ -120,59 +118,35 @@ with METADATA_PATH.open(
     "r",
     encoding="utf-8",
 ) as file:
+
     metadata = json.load(file)
 
-print(f"Toplam metadata : {len(metadata)}")
+print(f"Toplam chunk : {len(metadata)}")
 
-
-# --------------------------------------------------
-# FAISS INDEX
-# --------------------------------------------------
-
-print("\nFAISS index yükleniyor...")
+print("\nFAISS yükleniyor...")
 
 with INDEX_PATH.open("rb") as file:
+
     serialized = np.frombuffer(
         file.read(),
         dtype="uint8",
     )
 
-faiss_index = faiss.deserialize_index(
-    serialized
-)
+faiss_index = faiss.deserialize_index(serialized)
 
-print(
-    f"Toplam FAISS vektörü : "
-    f"{faiss_index.ntotal}"
-)
-
-
-# --------------------------------------------------
-# EMBEDDING MODELİ
-# --------------------------------------------------
+print(f"Toplam vektör : {faiss_index.ntotal}")
 
 print("\nEmbedding modeli yükleniyor...")
-
-start = time.perf_counter()
 
 model = SentenceTransformer(
     MODEL_NAME,
     device="cpu",
 )
 
-model_time = (
-    time.perf_counter()
-    - start
-)
-
-print(
-    f"Model hazır "
-    f"({model_time:.2f} sn)"
-)
-
+print("Model hazır.")
 
 # --------------------------------------------------
-# BM25 TOKENIZER
+# TOKENIZER
 # --------------------------------------------------
 
 def tokenize(text):
@@ -196,28 +170,17 @@ corpus = [
     for chunk in metadata
 ]
 
-start = time.perf_counter()
-
 bm25 = BM25Okapi(corpus)
 
-bm25_time = (
-    time.perf_counter()
-    - start
-)
+print("BM25 hazır.")
 
-print(
-    f"BM25 hazır "
-    f"({bm25_time:.4f} sn)"
-)
 
 # --------------------------------------------------
-# FAISS SEARCH
+# SEMANTIC SEARCH
 # --------------------------------------------------
 
-def semantic_search(question):
-    """
-    FAISS üzerinde Top-1 semantic search yapar.
-    """
+def semantic_search(question, top_k=TOP_K):
+    """FAISS Semantic Search"""
 
     query_embedding = model.encode(
         [question],
@@ -229,28 +192,31 @@ def semantic_search(question):
 
     scores, indices = faiss_index.search(
         query_embedding,
-        TOP_K,
+        top_k,
     )
 
     elapsed = time.perf_counter() - start
 
-    index = indices[0][0]
+    results = []
 
-    return (
-        metadata[index],
-        float(scores[0][0]),
-        elapsed,
-    )
+    for idx, score in zip(indices[0], scores[0]):
+
+        results.append(
+            (
+                idx,
+                float(score),
+            )
+        )
+
+    return results, elapsed
 
 
 # --------------------------------------------------
 # BM25 SEARCH
 # --------------------------------------------------
 
-def bm25_search(question):
-    """
-    BM25 üzerinde Top-1 retrieval yapar.
-    """
+def bm25_search(question, top_k=TOP_K):
+    """BM25 Retrieval"""
 
     query_tokens = tokenize(question)
 
@@ -260,112 +226,236 @@ def bm25_search(question):
 
     elapsed = time.perf_counter() - start
 
-    best_index = int(np.argmax(scores))
+    ranked = sorted(
+        enumerate(scores),
+        key=lambda x: x[1],
+        reverse=True,
+    )[:top_k]
 
-    return (
-        metadata[best_index],
-        float(scores[best_index]),
-        elapsed,
+    return ranked, elapsed
+
+
+# --------------------------------------------------
+# RRF
+# --------------------------------------------------
+
+def reciprocal_rank_fusion(
+    semantic_results,
+    bm25_results,
+):
+    """Reciprocal Rank Fusion"""
+
+    scores = {}
+
+    for rank, (idx, _) in enumerate(
+        semantic_results,
+        start=1,
+    ):
+
+        scores[idx] = (
+            scores.get(idx, 0)
+            + 1 / (RRF_K + rank)
+        )
+
+    for rank, (idx, _) in enumerate(
+        bm25_results,
+        start=1,
+    ):
+
+        scores[idx] = (
+            scores.get(idx, 0)
+            + 1 / (RRF_K + rank)
+        )
+
+    return sorted(
+        scores.items(),
+        key=lambda x: x[1],
+        reverse=True,
     )
 
+
 # --------------------------------------------------
-# DOĞRULUK KONTROLÜ
+# HYBRID SEARCH
 # --------------------------------------------------
 
-def is_correct(result, expected):
-    """
-    Dönen kaynağın beklenen belge olup olmadığını kontrol eder.
-    """
+def hybrid_search(question, top_k=TOP_K):
+    """Hybrid Search (Semantic + BM25 + RRF)"""
 
-    return expected in result["source"]
+    semantic_results, semantic_time = semantic_search(
+        question,
+        top_k * 3,
+    )
+
+    bm25_results, bm25_time = bm25_search(
+        question,
+        top_k * 3,
+    )
+
+    ranked = reciprocal_rank_fusion(
+        semantic_results,
+        bm25_results,
+    )
+
+    return (
+        ranked[:top_k],
+        semantic_time + bm25_time,
+    )
+
+
+# --------------------------------------------------
+# DOĞRULUK
+# --------------------------------------------------
+
+def is_correct(
+    source,
+    expected,
+):
+
+    return expected in source
 
 # --------------------------------------------------
 # BENCHMARK
 # --------------------------------------------------
 
-benchmark_results = []
-
-semantic_correct = 0
-bm25_correct = 0
-
-semantic_times = []
-bm25_times = []
-
 print("\n" + "=" * 70)
 print("BENCHMARK BAŞLIYOR")
 print("=" * 70)
 
-for i, test in enumerate(TEST_QUERIES, start=1):
+semantic_correct = 0
+bm25_correct = 0
+hybrid_correct = 0
 
-    question = test["question"]
-    expected = test["expected"]
+semantic_times = []
+bm25_times = []
+hybrid_times = []
+
+benchmark_rows = []
+
+for i, (question, expected) in enumerate(TEST_QUERIES, start=1):
 
     print(f"\n{i}. SORU")
     print(f"Soru     : {question}")
     print(f"Beklenen : {expected}")
 
-    # -------------------------
+    # --------------------------------------------------
     # Semantic Search
-    # -------------------------
+    # --------------------------------------------------
 
-    semantic_result, semantic_score, semantic_time = semantic_search(question)
+    semantic_results, semantic_time = semantic_search(question)
 
-    semantic_times.append(semantic_time)
+    semantic_idx, semantic_score = semantic_results[0]
+
+    semantic_source = metadata[semantic_idx]["source"]
 
     semantic_ok = is_correct(
-        semantic_result,
+        semantic_source,
         expected,
     )
+
+    semantic_times.append(semantic_time)
 
     if semantic_ok:
         semantic_correct += 1
 
-    # -------------------------
+    # --------------------------------------------------
     # BM25
-    # -------------------------
+    # --------------------------------------------------
 
-    bm25_result, bm25_score, bm25_time = bm25_search(question)
+    bm25_results, bm25_time = bm25_search(question)
 
-    bm25_times.append(bm25_time)
+    bm25_idx, bm25_score = bm25_results[0]
+
+    bm25_source = metadata[bm25_idx]["source"]
 
     bm25_ok = is_correct(
-        bm25_result,
+        bm25_source,
         expected,
     )
+
+    bm25_times.append(bm25_time)
 
     if bm25_ok:
         bm25_correct += 1
 
-    print("\nSemantic Search")
+    # --------------------------------------------------
+    # Hybrid
+    # --------------------------------------------------
+
+    hybrid_results, hybrid_time = hybrid_search(question)
+
+    hybrid_idx, hybrid_score = hybrid_results[0]
+
+    hybrid_source = metadata[hybrid_idx]["source"]
+
+    hybrid_ok = is_correct(
+        hybrid_source,
+        expected,
+    )
+
+    hybrid_times.append(hybrid_time)
+
+    if hybrid_ok:
+        hybrid_correct += 1
+
+    print("\nSemantic")
     print("----------------------------")
-    print(f"Kaynak : {semantic_result['source']}")
+    print(f"Kaynak : {semantic_source}")
     print(f"Skor   : {semantic_score:.4f}")
-    print(f"Süre   : {semantic_time:.4f} sn")
     print(f"Doğru  : {'EVET' if semantic_ok else 'HAYIR'}")
 
     print("\nBM25")
     print("----------------------------")
-    print(f"Kaynak : {bm25_result['source']}")
+    print(f"Kaynak : {bm25_source}")
     print(f"Skor   : {bm25_score:.4f}")
-    print(f"Süre   : {bm25_time:.4f} sn")
     print(f"Doğru  : {'EVET' if bm25_ok else 'HAYIR'}")
 
-    benchmark_results.append(
-    {
-        "question": question,
-        "expected": expected,
+    print("\nHybrid")
+    print("----------------------------")
+    print(f"Kaynak : {hybrid_source}")
+    print(f"Skor   : {hybrid_score:.4f}")
+    print(f"Doğru  : {'EVET' if hybrid_ok else 'HAYIR'}")
 
-        "semantic_source": semantic_result["source"],
-        "semantic_score": round(semantic_score, 4),
-        "semantic_time": round(semantic_time, 4),
-        "semantic_correct": semantic_ok,
+    benchmark_rows.append([
+        question,
+        expected,
+        semantic_source,
+        semantic_score,
+        semantic_ok,
+        bm25_source,
+        bm25_score,
+        bm25_ok,
+        hybrid_source,
+        hybrid_score,
+        hybrid_ok,
+    ])
 
-        "bm25_source": bm25_result["source"],
-        "bm25_score": round(bm25_score, 4),
-        "bm25_time": round(bm25_time, 4),
-        "bm25_correct": bm25_ok,
-    }
-)
+# --------------------------------------------------
+# CSV
+# --------------------------------------------------
+
+with CSV_PATH.open(
+    "w",
+    newline="",
+    encoding="utf-8",
+) as file:
+
+    writer = csv.writer(file)
+
+    writer.writerow([
+        "question",
+        "expected",
+        "semantic_source",
+        "semantic_score",
+        "semantic_correct",
+        "bm25_source",
+        "bm25_score",
+        "bm25_correct",
+        "hybrid_source",
+        "hybrid_score",
+        "hybrid_correct",
+    ])
+
+    writer.writerows(benchmark_rows)
 
 # --------------------------------------------------
 # SONUÇLAR
@@ -375,24 +465,22 @@ print("\n" + "=" * 70)
 print("BENCHMARK SONUCU")
 print("=" * 70)
 
-semantic_accuracy = (
-    semantic_correct / len(TEST_QUERIES)
-) * 100
-
-bm25_accuracy = (
-    bm25_correct / len(TEST_QUERIES)
-) * 100
-
 print(
     f"\nSemantic Accuracy : "
     f"{semantic_correct}/{len(TEST_QUERIES)} "
-    f"({semantic_accuracy:.2f}%)"
+    f"({semantic_correct/len(TEST_QUERIES)*100:.2f}%)"
 )
 
 print(
     f"BM25 Accuracy     : "
     f"{bm25_correct}/{len(TEST_QUERIES)} "
-    f"({bm25_accuracy:.2f}%)"
+    f"({bm25_correct/len(TEST_QUERIES)*100:.2f}%)"
+)
+
+print(
+    f"Hybrid Accuracy   : "
+    f"{hybrid_correct}/{len(TEST_QUERIES)} "
+    f"({hybrid_correct/len(TEST_QUERIES)*100:.2f}%)"
 )
 
 print()
@@ -407,22 +495,12 @@ print(
     f"{sum(bm25_times)/len(bm25_times):.4f} sn"
 )
 
-benchmark_results.append(
-    {
-        "question": question,
-        "expected": expected,
-
-        "semantic_source": semantic_result["source"],
-        "semantic_score": round(semantic_score, 4),
-        "semantic_time": round(semantic_time, 4),
-        "semantic_correct": semantic_ok,
-
-        "bm25_source": bm25_result["source"],
-        "bm25_score": round(bm25_score, 4),
-        "bm25_time": round(bm25_time, 4),
-        "bm25_correct": bm25_ok,
-    }
+print(
+    f"Hybrid Ortalama Süre   : "
+    f"{sum(hybrid_times)/len(hybrid_times):.4f} sn"
 )
 
-print("\n" + "=" * 70)
+print("\nCSV kaydedildi:")
+print(CSV_PATH)
 
+print("\n" + "=" * 70)

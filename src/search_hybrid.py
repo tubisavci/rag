@@ -29,9 +29,8 @@ MODEL_NAME = "BAAI/bge-m3"
 
 TOP_K = 5
 
-SEMANTIC_WEIGHT = 0.6
-
-BM25_WEIGHT = 0.4
+# Reciprocal Rank Fusion sabiti
+RRF_K = 60
 
 # --------------------------------------------------
 # ARGUMENTS
@@ -307,46 +306,44 @@ def bm25_search(
     return results
 
 # --------------------------------------------------
-# MIN-MAX NORMALIZATION
+# RECIPROCAL RANK FUSION
 # --------------------------------------------------
 
-def normalize_scores(results):
+def reciprocal_rank_fusion(
+    semantic_results,
+    bm25_results,
+):
     """
-    Skorları 0-1 aralığına normalize eder.
+    Semantic ve BM25 sonuçlarını
+    Reciprocal Rank Fusion ile birleştirir.
     """
 
-    if not results:
-        return {}
+    scores = {}
 
-    scores = [
-        score
-        for _, score in results
-    ]
+    for rank, (idx, _) in enumerate(
+        semantic_results,
+        start=1,
+    ):
 
-    minimum = min(scores)
-    maximum = max(scores)
-
-    normalized = {}
-
-    if maximum == minimum:
-
-        for idx, _ in results:
-            normalized[idx] = 1.0
-
-        return normalized
-
-    for idx, score in results:
-
-        normalized[idx] = (
-            (score - minimum)
-            /
-            (maximum - minimum)
+        scores[idx] = (
+            scores.get(idx, 0)
+            + 1 / (RRF_K + rank)
         )
 
-    return normalized
+    for rank, (idx, _) in enumerate(
+        bm25_results,
+        start=1,
+    ):
+
+        scores[idx] = (
+            scores.get(idx, 0)
+            + 1 / (RRF_K + rank)
+        )
+
+    return scores
 
 # --------------------------------------------------
-# HYBRID SEARCH
+# HYBRID SEARCH (RRF)
 # --------------------------------------------------
 
 def hybrid_search(
@@ -358,7 +355,8 @@ def hybrid_search(
     top_k,
 ):
     """
-    Semantic + BM25 skorlarını birleştirir.
+    Semantic Search ve BM25 sonuçlarını
+    Reciprocal Rank Fusion ile birleştirir.
     """
 
     semantic_results = semantic_search(
@@ -374,61 +372,20 @@ def hybrid_search(
         top_k * 3,
     )
 
-    semantic_scores = normalize_scores(
-        semantic_results
+    rrf_scores = reciprocal_rank_fusion(
+        semantic_results,
+        bm25_results,
     )
 
-    bm25_scores = normalize_scores(
-        bm25_results
-    )
-
-    all_indices = set()
-
-    all_indices.update(
-        semantic_scores.keys()
-    )
-
-    all_indices.update(
-        bm25_scores.keys()
-    )
-
-    hybrid_results = []
-
-    for idx in all_indices:
-
-        semantic = semantic_scores.get(
-            idx,
-            0,
-        )
-
-        lexical = bm25_scores.get(
-            idx,
-            0,
-        )
-
-        score = (
-            SEMANTIC_WEIGHT
-            * semantic
-            +
-            BM25_WEIGHT
-            * lexical
-        )
-
-        hybrid_results.append(
-            (
-                idx,
-                score,
-            )
-        )
-
-    hybrid_results.sort(
+    ranked = sorted(
+        rrf_scores.items(),
         key=lambda x: x[1],
         reverse=True,
     )
 
     final_results = []
 
-    for idx, score in hybrid_results[:top_k]:
+    for idx, score in ranked[:top_k]:
 
         final_results.append(
             (
@@ -597,4 +554,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-    
