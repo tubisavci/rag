@@ -20,6 +20,7 @@ import faiss
 import numpy as np
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
+from reranker import rerank
 
 # --------------------------------------------------
 # AYARLAR
@@ -383,14 +384,36 @@ def hybrid_search(
         reverse=True,
     )
 
+    # -----------------------------
+    # İlk adayları al
+    # -----------------------------
+
+    candidates = ranked[:top_k]
+
+    documents = [
+        metadata[idx]["text"]
+        for idx, _ in candidates
+    ]
+
+    # -----------------------------
+    # Reranker
+    # -----------------------------
+
+    reranked = rerank(
+        question,
+        documents,
+    )
+
     final_results = []
 
-    for idx, score in ranked[:top_k]:
+    for doc_index, rerank_score in reranked[:5]:
+
+        original_index = candidates[doc_index][0]
 
         final_results.append(
             (
-                metadata[idx],
-                score,
+                metadata[original_index],
+                rerank_score,
             )
         )
 
@@ -429,8 +452,8 @@ def print_results(
         print(f"\n{rank}. SONUÇ")
 
         print(
-            f"Hybrid Skor    : {score:.4f}"
-        )
+            f"Reranker Skoru : {score:.4f}"
+      )
 
         print(
             f"Kaynak         : {chunk['source']}"
@@ -523,12 +546,12 @@ def main():
         start = time.perf_counter()
 
         results = hybrid_search(
-            model=model,
-            faiss_index=faiss_index,
-            bm25=bm25,
-            metadata=metadata,
-            question=question,
-            top_k=args.top_k,
+         model=model,
+         faiss_index=faiss_index,
+         bm25=bm25,
+         metadata=metadata,
+         question=question,
+         top_k=max(args.top_k * 2, 10),    
         )
 
         elapsed = (
