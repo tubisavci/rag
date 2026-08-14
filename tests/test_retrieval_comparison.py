@@ -8,12 +8,22 @@ import csv
 import json
 import re
 import time
+import sys
 from pathlib import Path
 
 import faiss
 import numpy as np
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
+
+sys.path.append(
+    str(
+        Path(__file__).resolve().parent.parent
+        / "src"
+    )
+)
+
+from reranker import rerank
 
 # --------------------------------------------------
 # SETTINGS
@@ -301,6 +311,55 @@ def hybrid_search(question, top_k=TOP_K):
         semantic_time + bm25_time,
     )
 
+# --------------------------------------------------
+# HYBRID + RERANKER
+# --------------------------------------------------
+
+def hybrid_reranker_search(question, top_k=TOP_K):
+    """
+    Hybrid Search + BGE Reranker
+    """
+
+    hybrid_results, hybrid_time = hybrid_search(
+        question,
+        top_k=10,
+    )
+
+    documents = [
+        metadata[idx]["text"]
+        for idx, _ in hybrid_results
+    ]
+
+    start = time.perf_counter()
+
+    reranked = rerank(
+        question,
+        documents,
+    )
+
+    rerank_time = (
+        time.perf_counter()
+        - start
+    )
+
+    final_results = []
+
+    for doc_index, rerank_score in reranked[:top_k]:
+
+        original_index = hybrid_results[doc_index][0]
+
+        final_results.append(
+            (
+                original_index,
+                rerank_score,
+            )
+        )
+
+    return (
+        final_results,
+        hybrid_time + rerank_time,
+    )
+
 
 # --------------------------------------------------
 # DOĞRULUK
@@ -324,10 +383,13 @@ print("=" * 70)
 semantic_correct = 0
 bm25_correct = 0
 hybrid_correct = 0
+reranker_correct = 0
+reranker_changed = 0
 
 semantic_times = []
 bm25_times = []
 hybrid_times = []
+reranker_times = []
 
 benchmark_rows = []
 
@@ -397,6 +459,33 @@ for i, (question, expected) in enumerate(TEST_QUERIES, start=1):
     if hybrid_ok:
         hybrid_correct += 1
 
+    # --------------------------------------------------
+    # Hybrid + Reranker
+    # --------------------------------------------------
+
+    reranker_results, reranker_time = hybrid_reranker_search(
+        question
+    )
+
+    reranker_idx, reranker_score = reranker_results[0]
+
+    if reranker_idx != hybrid_idx:
+      reranker_changed += 1
+
+    reranker_source = metadata[reranker_idx]["source"]
+
+    reranker_ok = is_correct(
+        reranker_source,
+        expected,
+    )
+
+    reranker_times.append(
+        reranker_time
+    )
+
+    if reranker_ok:
+        reranker_correct += 1
+
     print("\nSemantic")
     print("----------------------------")
     print(f"Kaynak : {semantic_source}")
@@ -415,19 +504,40 @@ for i, (question, expected) in enumerate(TEST_QUERIES, start=1):
     print(f"Skor   : {hybrid_score:.4f}")
     print(f"Doğru  : {'EVET' if hybrid_ok else 'HAYIR'}")
 
-    benchmark_rows.append([
-        question,
-        expected,
-        semantic_source,
-        semantic_score,
-        semantic_ok,
-        bm25_source,
-        bm25_score,
-        bm25_ok,
-        hybrid_source,
-        hybrid_score,
-        hybrid_ok,
-    ])
+    print("\nHybrid + Reranker")
+    print("----------------------------")
+    print(f"Kaynak : {reranker_source}")
+    print(f"Skor   : {reranker_score:.4f}")
+    print(
+        f"Doğru  : "
+        f"{'EVET' if reranker_ok else 'HAYIR'}"
+    )
+
+benchmark_rows.append([
+    question,
+    expected,
+
+    semantic_source,
+    semantic_score,
+    semantic_ok,
+
+    bm25_source,
+    bm25_score,
+    bm25_ok,
+
+    hybrid_source,
+    hybrid_score,
+    hybrid_ok,
+
+    reranker_source,
+    reranker_score,
+    reranker_ok,
+
+    hybrid_idx,
+    reranker_idx,
+
+    hybrid_idx != reranker_idx,
+])
 
 # --------------------------------------------------
 # CSV
@@ -444,15 +554,26 @@ with CSV_PATH.open(
     writer.writerow([
         "question",
         "expected",
+
         "semantic_source",
         "semantic_score",
         "semantic_correct",
+
         "bm25_source",
         "bm25_score",
         "bm25_correct",
+
         "hybrid_source",
         "hybrid_score",
         "hybrid_correct",
+
+        "reranker_source",
+        "reranker_score",
+        "reranker_correct",
+
+        "hybrid_chunk_index",
+        "reranker_chunk_index",
+        "reranker_changed",
     ])
 
     writer.writerows(benchmark_rows)
@@ -483,6 +604,17 @@ print(
     f"({hybrid_correct/len(TEST_QUERIES)*100:.2f}%)"
 )
 
+print(
+    f"Hybrid + Reranker Accuracy : "
+    f"{reranker_correct}/{len(TEST_QUERIES)} "
+    f"({reranker_correct / len(TEST_QUERIES) * 100:.2f}%)"
+)
+
+print(
+    f"Reranker'ın ilk sonucu değiştirdiği soru sayısı : "
+    f"{reranker_changed}/{len(TEST_QUERIES)}"
+)
+
 print()
 
 print(
@@ -500,7 +632,13 @@ print(
     f"{sum(hybrid_times)/len(hybrid_times):.4f} sn"
 )
 
+print(
+    f"Hybrid + Reranker Ortalama Süre : "
+    f"{sum(reranker_times) / len(reranker_times):.4f} sn"
+)
+
 print("\nCSV kaydedildi:")
 print(CSV_PATH)
 
 print("\n" + "=" * 70)
+
