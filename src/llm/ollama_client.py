@@ -48,7 +48,7 @@ def generate_response(
     response = requests.post(
         OLLAMA_URL,
         json=payload,
-        timeout=300,
+        timeout=600,
     )
 
     response.raise_for_status()

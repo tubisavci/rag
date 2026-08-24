@@ -1,0 +1,34 @@
+{
+    "experiment": "Prompt Engineering",
+    "date": "2026-08-24",
+    "model": "qwen3:8b",
+    "chunk_strategy": "500_100",
+    "top_k": 5,
+    "question": "Türkiye'nin Ulusal Yapay Zeka Stratejisi'nin temel amaçları nelerdir?",
+    "retrieval": {
+        "semantic": "FAISS",
+        "keyword": "BM25",
+        "hybrid": "RRF",
+        "reranker": "BAAI/bge-reranker-base"
+    },
+    "results": [
+        {
+            "strategy": "simple",
+            "llm_time_seconds": 297.0657,
+            "status": "success",
+            "notes": "Daha uzun cevap üretti. Cevap içerisinde yabancı dilde bir ifade gözlendi."
+        },
+        {
+            "strategy": "rag",
+            "llm_time_seconds": 228.9771,
+            "status": "success",
+            "notes": "En düşük LLM üretim süresi. Context kullanımını sınırlandıran kurallar içeriyor."
+        },
+        {
+            "strategy": "source",
+            "llm_time_seconds": 259.4179,
+            "status": "success",
+            "notes": "Kaynak referansları üretti ancak gerçek kaynak/citation mekanizması henüz bulunmuyor."
+        }
+    ]
+}
