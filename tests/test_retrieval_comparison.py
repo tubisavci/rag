@@ -470,7 +470,7 @@ for i, (question, expected) in enumerate(TEST_QUERIES, start=1):
     reranker_idx, reranker_score = reranker_results[0]
 
     if reranker_idx != hybrid_idx:
-      reranker_changed += 1
+        reranker_changed += 1
 
     reranker_source = metadata[reranker_idx]["source"]
 
@@ -485,6 +485,39 @@ for i, (question, expected) in enumerate(TEST_QUERIES, start=1):
 
     if reranker_ok:
         reranker_correct += 1
+
+    # --------------------------------------------------
+    # CSV SATIRI
+    # --------------------------------------------------
+
+    benchmark_rows.append([
+        question,
+        expected,
+
+        semantic_source,
+        semantic_score,
+        semantic_time,
+        semantic_ok,
+
+        bm25_source,
+        bm25_score,
+        bm25_time,
+        bm25_ok,
+
+        hybrid_source,
+        hybrid_score,
+        hybrid_time,
+        hybrid_ok,
+
+        reranker_source,
+        reranker_score,
+        reranker_time,
+        reranker_ok,
+
+        hybrid_idx,
+        reranker_idx,
+        reranker_idx != hybrid_idx,
+    ])
 
     print("\nSemantic")
     print("----------------------------")
@@ -513,32 +546,6 @@ for i, (question, expected) in enumerate(TEST_QUERIES, start=1):
         f"{'EVET' if reranker_ok else 'HAYIR'}"
     )
 
-benchmark_rows.append([
-    question,
-    expected,
-
-    semantic_source,
-    semantic_score,
-    semantic_ok,
-
-    bm25_source,
-    bm25_score,
-    bm25_ok,
-
-    hybrid_source,
-    hybrid_score,
-    hybrid_ok,
-
-    reranker_source,
-    reranker_score,
-    reranker_ok,
-
-    hybrid_idx,
-    reranker_idx,
-
-    hybrid_idx != reranker_idx,
-])
-
 # --------------------------------------------------
 # CSV
 # --------------------------------------------------
@@ -552,30 +559,33 @@ with CSV_PATH.open(
     writer = csv.writer(file)
 
     writer.writerow([
-        "question",
-        "expected",
+    "question",
+    "expected",
 
-        "semantic_source",
-        "semantic_score",
-        "semantic_correct",
+    "semantic_source",
+    "semantic_score",
+    "semantic_time",
+    "semantic_correct",
 
-        "bm25_source",
-        "bm25_score",
-        "bm25_correct",
+    "bm25_source",
+    "bm25_score",
+    "bm25_time",
+    "bm25_correct",
 
-        "hybrid_source",
-        "hybrid_score",
-        "hybrid_correct",
+    "hybrid_source",
+    "hybrid_score",
+    "hybrid_time",
+    "hybrid_correct",
 
-        "reranker_source",
-        "reranker_score",
-        "reranker_correct",
+    "reranker_source",
+    "reranker_score",
+    "reranker_time",
+    "reranker_correct",
 
-        "hybrid_chunk_index",
-        "reranker_chunk_index",
-        "reranker_changed",
-    ])
-
+    "hybrid_chunk_index",
+    "reranker_chunk_index",
+    "reranker_changed",
+])
     writer.writerows(benchmark_rows)
 
 # --------------------------------------------------
