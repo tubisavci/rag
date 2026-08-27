@@ -14,8 +14,8 @@ import time
 from pathlib import Path
 
 import faiss
-from sentence_transformers import SentenceTransformer
 
+from src.embedding_model import BGEEmbeddingModel
 
 # --------------------------------------------------
 # AYARLAR
@@ -58,7 +58,12 @@ def parse_arguments():
 def get_paths(strategy):
     """Proje yollarını oluşturur."""
 
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = (
+        Path(__file__)
+        .resolve()
+        .parent
+        .parent
+    )
 
     chunk_path = (
         project_root
@@ -122,7 +127,8 @@ def load_chunks(chunk_path):
         )
 
     print(
-        f"Toplam chunk sayısı: {len(chunks)}"
+        f"Toplam chunk sayısı: "
+        f"{len(chunks)}"
     )
 
     return chunks
@@ -145,10 +151,10 @@ def extract_texts(chunks):
         ).strip()
 
         if not text:
-
             raise ValueError(
                 f"Boş chunk bulundu. "
-                f"Chunk ID: {chunk.get('chunk_id')}"
+                f"Chunk ID: "
+                f"{chunk.get('chunk_id')}"
             )
 
         texts.append(text)
@@ -166,16 +172,13 @@ def extract_texts(chunks):
 # --------------------------------------------------
 
 def load_model():
-    """BGE-M3 modelini yükler."""
+    """BGE-M3 modelini GPU üzerinde yükler."""
 
     print("\nBGE-M3 yükleniyor...")
 
     start = time.perf_counter()
 
-    model = SentenceTransformer(
-        MODEL_NAME,
-        device="cpu",
-    )
+    model = BGEEmbeddingModel()
 
     load_time = (
         time.perf_counter()
@@ -201,14 +204,15 @@ def build_embeddings(
     model,
     texts,
 ):
-    """Embedding üretir."""
+    """Chunk embeddinglerini oluşturur."""
 
     print(
         "\nChunk embeddingleri oluşturuluyor..."
     )
 
     print(
-        "Bu işlem CPU üzerinde biraz sürebilir.\n"
+        "Bu işlem GPU üzerinde "
+        "gerçekleştirilecek.\n"
     )
 
     start = time.perf_counter()
@@ -216,9 +220,6 @@ def build_embeddings(
     embeddings = model.encode(
         texts,
         batch_size=BATCH_SIZE,
-        convert_to_numpy=True,
-        show_progress_bar=True,
-        normalize_embeddings=True,
     ).astype(
         "float32"
     )
@@ -283,7 +284,6 @@ def build_index(
     )
 
     if index.ntotal != chunk_count:
-
         raise ValueError(
             "FAISS vektör sayısı ile "
             "chunk sayısı eşleşmiyor."
@@ -336,7 +336,8 @@ def save_index(
         "FAISS index başarıyla kaydedildi."
     )
 
-    # --------------------------------------------------
+
+# --------------------------------------------------
 # METADATA
 # --------------------------------------------------
 
@@ -378,15 +379,15 @@ def verify_files(
     """Oluşturulan dosyaları kontrol eder."""
 
     if not index_path.exists():
-
         raise FileNotFoundError(
-            f"FAISS index oluşturulamadı:\n{index_path}"
+            f"FAISS index oluşturulamadı:\n"
+            f"{index_path}"
         )
 
     if not metadata_path.exists():
-
         raise FileNotFoundError(
-            f"Metadata oluşturulamadı:\n{metadata_path}"
+            f"Metadata oluşturulamadı:\n"
+            f"{metadata_path}"
         )
 
 
@@ -425,15 +426,18 @@ def print_summary(
     print("=" * 70)
 
     print(
-        f"Chunk stratejisi        : {strategy}"
+        f"Chunk stratejisi        : "
+        f"{strategy}"
     )
 
     print(
-        f"Toplam chunk            : {chunk_count}"
+        f"Toplam chunk            : "
+        f"{chunk_count}"
     )
 
     print(
-        f"Embedding boyutu        : {dimension}"
+        f"Embedding boyutu        : "
+        f"{dimension}"
     )
 
     print(
@@ -492,12 +496,35 @@ def main():
     print("BGE-M3 + FAISS INDEX OLUŞTURMA")
     print("=" * 70)
 
-    print(f"\nModel           : {MODEL_NAME}")
-    print(f"Chunk stratejisi: {args.strategy}")
-    print(f"Batch size      : {BATCH_SIZE}")
-    print(f"Chunk dosyası   : {chunk_path}")
-    print(f"FAISS index     : {index_path}")
-    print(f"Metadata        : {metadata_path}")
+    print(
+        f"\nModel           : "
+        f"{MODEL_NAME}"
+    )
+
+    print(
+        f"Chunk stratejisi: "
+        f"{args.strategy}"
+    )
+
+    print(
+        f"Batch size      : "
+        f"{BATCH_SIZE}"
+    )
+
+    print(
+        f"Chunk dosyası   : "
+        f"{chunk_path}"
+    )
+
+    print(
+        f"FAISS index     : "
+        f"{index_path}"
+    )
+
+    print(
+        f"Metadata        : "
+        f"{metadata_path}"
+    )
 
     chunks = load_chunks(
         chunk_path

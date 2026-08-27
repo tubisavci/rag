@@ -5,7 +5,7 @@ Hybrid Search sonuçlarını yeniden sıralamak için kullanılır.
 """
 
 import time
-from typing import List
+from typing import List, Tuple
 
 import torch
 from transformers import (
@@ -19,6 +19,12 @@ from transformers import (
 
 MODEL_NAME = "BAAI/bge-reranker-base"
 
+LOCAL_MODEL_PATH = (
+    r"C:\Users\User\.cache\huggingface\hub"
+    r"\models--BAAI--bge-reranker-base"
+    r"\snapshots\2cfc18c9415c912f9d8155881c133215df768a70"
+)
+
 DEVICE = (
     "cuda"
     if torch.cuda.is_available()
@@ -27,55 +33,78 @@ DEVICE = (
 
 BATCH_SIZE = 8
 
-# --------------------------------------------------
-# MODEL
-# --------------------------------------------------
+# Model başlangıçta yüklenmez.
+_tokenizer = None
+_model = None
 
-print("=" * 70)
-print("BGE RERANKER")
-print("=" * 70)
-
-print(f"\nModel : {MODEL_NAME}")
-print(f"Device: {DEVICE}")
-
-print("\nModel yükleniyor...")
-
-start = time.perf_counter()
-
-tokenizer = AutoTokenizer.from_pretrained(
-    MODEL_NAME
-)
-
-model = AutoModelForSequenceClassification.from_pretrained(
-    MODEL_NAME
-)
-
-model.to(DEVICE)
-
-model.eval()
-
-elapsed = time.perf_counter() - start
-
-print(
-    f"Model hazır ({elapsed:.2f} sn)"
-)
 
 # --------------------------------------------------
-# PAIR OLUŞTUR
+# MODEL LOADING
+# --------------------------------------------------
+
+def load_reranker():
+    """
+    BGE reranker modelini gerektiğinde yükler.
+
+    Model daha önce yüklenmişse tekrar yüklenmez.
+    """
+
+    global _tokenizer
+    global _model
+
+    if _tokenizer is not None and _model is not None:
+        return _tokenizer, _model
+
+    print("=" * 70)
+    print("BGE RERANKER")
+    print("=" * 70)
+
+    print(f"\nModel : {MODEL_NAME}")
+    print(f"Device: {DEVICE}")
+
+    print("\nModel yükleniyor...")
+
+    start = time.perf_counter()
+
+    _tokenizer = AutoTokenizer.from_pretrained(
+    LOCAL_MODEL_PATH,
+    local_files_only=True,
+)
+
+    _model = AutoModelForSequenceClassification.from_pretrained(
+    LOCAL_MODEL_PATH,
+    local_files_only=True,
+)
+
+    _model.to(DEVICE)
+    _model.eval()
+
+    elapsed = time.perf_counter() - start
+
+    print(
+        f"Model hazır ({elapsed:.2f} sn)"
+    )
+
+    return _tokenizer, _model
+
+
+# --------------------------------------------------
+# PAIR OLUŞTURMA
 # --------------------------------------------------
 
 def create_pairs(
     question: str,
     documents: List[str],
-):
+) -> List[List[str]]:
     """
-    Question-document çiftleri oluşturur.
+    Soru ve doküman çiftleri oluşturur.
     """
 
     return [
         [question, doc]
         for doc in documents
     ]
+
 
 # --------------------------------------------------
 # RERANK
@@ -85,19 +114,21 @@ def create_pairs(
 def rerank(
     question: str,
     documents: List[str],
-):
+) -> List[Tuple[int, float]]:
     """
     Question ile documentleri yeniden sıralar.
 
     Geri dönüş:
         [
-            (index, score),
+            (document_index, score),
             ...
         ]
     """
 
     if len(documents) == 0:
         return []
+
+    tokenizer, model = load_reranker()
 
     pairs = create_pairs(
         question,
@@ -113,41 +144,34 @@ def rerank(
         len(pairs),
         BATCH_SIZE,
     ):
-
-        batch_pairs = pairs[
+        batch = pairs[
             i:i + BATCH_SIZE
         ]
 
-        inputs = tokenizer(
-            batch_pairs,
+        encoded = tokenizer(
+            batch,
             padding=True,
             truncation=True,
             max_length=512,
             return_tensors="pt",
         )
 
-        inputs = {
+        encoded = {
             key: value.to(DEVICE)
-            for key, value in inputs.items()
+            for key, value in encoded.items()
         }
 
-        logits = model(
-            **inputs
-        ).logits
+        outputs = model(
+            **encoded
+        )
 
         batch_scores = (
-            logits.squeeze(-1)
+            outputs.logits
+            .view(-1)
+            .float()
             .cpu()
             .tolist()
         )
-
-        if isinstance(
-            batch_scores,
-            float,
-        ):
-            batch_scores = [
-                batch_scores
-            ]
 
         scores.extend(
             batch_scores
@@ -159,86 +183,65 @@ def rerank(
     )
 
     ranked = sorted(
-
         enumerate(scores),
-
         key=lambda x: x[1],
-
         reverse=True,
-
     )
 
     print(
-        f"\nReranking süresi: "
+        f"Reranking süresi: "
         f"{elapsed:.4f} sn"
     )
 
-    return ranked
-
-# --------------------------------------------------
-# MAIN
-# --------------------------------------------------
-
-def main():
-
-    print("\n" + "=" * 70)
-    print("RERANKER TESTİ")
-    print("=" * 70)
-
-    question = "Türkiye'nin çevre sorunları nelerdir?"
-
-    documents = [
-
-        "Türkiye'de hava kirliliği, su kirliliği ve atık yönetimi önemli çevre sorunlarıdır.",
-
-        "Python programlama dili Guido van Rossum tarafından geliştirilmiştir.",
-
-        "Çevre, Şehircilik ve İklim Değişikliği Bakanlığı çevre politikalarını yürütmektedir.",
-
-        "Türkiye'nin uzay çalışmaları TÜBİTAK UZAY tarafından desteklenmektedir.",
-
-        "İklim değişikliği tarımı olumsuz etkilemektedir."
-
+    return [
+        (
+            int(index),
+            float(score),
+        )
+        for index, score in ranked
     ]
 
-    print(f"\nSoru:\n{question}")
 
-    print("\nDokümanlar:")
+# --------------------------------------------------
+# TEST
+# --------------------------------------------------
 
-    for i, doc in enumerate(documents, start=1):
+if __name__ == "__main__":
 
-        print(f"{i}. {doc}")
+    print("=" * 70)
+    print("BGE RERANKER TESTİ")
+    print("=" * 70)
 
-    ranked = rerank(
+    question = (
+        "Türkiye'nin Ulusal Yapay Zeka "
+        "Stratejisi'nin temel amaçları nelerdir?"
+    )
+
+    documents = [
+        (
+            "Türkiye'nin Ulusal Yapay Zeka Stratejisi, "
+            "yapay zeka ekosisteminin geliştirilmesini "
+            "hedeflemektedir."
+        ),
+        (
+            "Türkiye'de enerji politikaları ve "
+            "yenilenebilir enerji yatırımları."
+        ),
+        (
+            "Yapay zeka alanında yetkin insan kaynağının "
+            "geliştirilmesi hedeflenmektedir."
+        ),
+    ]
+
+    results = rerank(
         question,
         documents,
     )
 
-    print("\n" + "=" * 70)
-    print("RERANK SONUCU")
-    print("=" * 70)
+    print("\nSonuçlar:")
 
-    for rank, (doc_index, score) in enumerate(
-        ranked,
-        start=1,
-    ):
-
-        print(f"\n{rank}. SONUÇ")
-
+    for index, score in results:
         print(
-            f"Skor : {score:.4f}"
+            f"Index: {index} | "
+            f"Score: {score:.4f}"
         )
-
-        print(
-            f"Doküman : {documents[doc_index]}"
-        )
-
-    print("\n" + "=" * 70)
-
-
-# --------------------------------------------------
-# ENTRY POINT
-# --------------------------------------------------
-
-if __name__ == "__main__":
-    main()

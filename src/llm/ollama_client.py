@@ -15,7 +15,6 @@ import requests
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL_NAME = "qwen3:8b"
 
-
 # --------------------------------------------------
 # LLM ÇAĞRISI
 # --------------------------------------------------

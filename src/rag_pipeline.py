@@ -21,7 +21,7 @@ Cevap
 import argparse
 import time
 
-from search_hybrid import (
+from  src.search_hybrid import (
     get_paths,
     load_index,
     load_metadata,
@@ -30,12 +30,12 @@ from search_hybrid import (
     hybrid_search,
 )
 
-from prompting.prompt_template import (
+from src.prompting.prompt_template import (
     format_context,
     build_messages,
 )
 
-from llm.ollama_client import (
+from src.llm.ollama_client import (
     generate_response,
 )
 

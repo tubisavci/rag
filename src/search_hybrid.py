@@ -1,13 +1,11 @@
-"""
-Hybrid Search (Semantic + BM25)
+﻿"""
+Hybrid Search (Semantic + BM25 + Reranker)
 
 Kullanım:
 
-python src/search_hybrid.py --strategy 300_50
-
-python src/search_hybrid.py --strategy 500_100
-
-python src/search_hybrid.py --strategy 800_150
+python -m src.search_hybrid --strategy 300_50
+python -m src.search_hybrid --strategy 500_100
+python -m src.search_hybrid --strategy 800_150
 """
 
 import argparse
@@ -16,11 +14,11 @@ import re
 import time
 from pathlib import Path
 
+from src.embedding_model import BGEEmbeddingModel
+
 import faiss
 import numpy as np
 from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
-from reranker import rerank
 
 # --------------------------------------------------
 # AYARLAR
@@ -32,6 +30,7 @@ TOP_K = 5
 
 # Reciprocal Rank Fusion sabiti
 RRF_K = 60
+
 
 # --------------------------------------------------
 # ARGUMENTS
@@ -64,14 +63,20 @@ def parse_arguments():
 
     return parser.parse_args()
 
+
 # --------------------------------------------------
 # PATHLER
 # --------------------------------------------------
 
 def get_paths(strategy):
-    """Dosya yollarını oluşturur."""
+    """FAISS index ve metadata dosya yollarını oluşturur."""
 
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = (
+        Path(__file__)
+        .resolve()
+        .parent
+        .parent
+    )
 
     index_path = (
         project_root
@@ -85,10 +90,8 @@ def get_paths(strategy):
         / f"metadata_bge_m3_{strategy}.json"
     )
 
-    return (
-        index_path,
-        metadata_path,
-    )
+    return index_path, metadata_path
+
 
 # --------------------------------------------------
 # FAISS INDEX
@@ -100,10 +103,14 @@ def load_index(index_path):
     print("\nFAISS index yükleniyor...")
 
     if not index_path.exists():
-        raise FileNotFoundError(index_path)
+        raise FileNotFoundError(
+            f"FAISS index bulunamadı: {index_path}"
+        )
+
+    import faiss
+    import numpy as np
 
     with index_path.open("rb") as file:
-
         serialized = np.frombuffer(
             file.read(),
             dtype="uint8",
@@ -114,8 +121,11 @@ def load_index(index_path):
     )
 
     print(
-        f"Toplam vektör : "
-        f"{index.ntotal}"
+        f"Toplam vektör : {index.ntotal}"
+    )
+
+    print(
+        f"Vektör boyutu : {index.d}"
     )
 
     return index
@@ -126,12 +136,14 @@ def load_index(index_path):
 # --------------------------------------------------
 
 def load_metadata(metadata_path):
-    """Metadata dosyasını yükler."""
+    """Metadata JSON dosyasını yükler."""
 
     print("\nMetadata yükleniyor...")
 
     if not metadata_path.exists():
-        raise FileNotFoundError(metadata_path)
+        raise FileNotFoundError(
+            f"Metadata bulunamadı: {metadata_path}"
+        )
 
     with metadata_path.open(
         "r",
@@ -141,33 +153,26 @@ def load_metadata(metadata_path):
         metadata = json.load(file)
 
     print(
-        f"Toplam metadata : "
-        f"{len(metadata)}"
+        f"Toplam metadata : {len(metadata)}"
     )
 
     return metadata
 
 
 # --------------------------------------------------
-# EMBEDDING MODELİ
+# EMBEDDING MODEL
 # --------------------------------------------------
 
 def load_model():
-    """BGE-M3 modelini yükler."""
+    """BGE-M3 embedding modelini yükler."""
 
     print("\nEmbedding modeli yükleniyor...")
 
     start = time.perf_counter()
 
-    model = SentenceTransformer(
-        MODEL_NAME,
-        device="cpu",
-    )
+    model = BGEEmbeddingModel()
 
-    elapsed = (
-        time.perf_counter()
-        - start
-    )
+    elapsed = time.perf_counter() - start
 
     print(
         f"Model hazır "
@@ -185,7 +190,7 @@ def load_model():
 # --------------------------------------------------
 
 def tokenize(text):
-    """Türkçe tokenizer."""
+    """Basit Türkçe kelime tokenizer."""
 
     return re.findall(
         r"\w+",
@@ -199,16 +204,18 @@ def tokenize(text):
 # --------------------------------------------------
 
 def build_bm25(metadata):
-    """BM25 index oluşturur."""
+    """Metadata üzerinden BM25 index oluşturur."""
 
     print("\nBM25 index oluşturuluyor...")
+
+    start = time.perf_counter()
+
+    from rank_bm25 import BM25Okapi
 
     corpus = [
         tokenize(chunk["text"])
         for chunk in metadata
     ]
-
-    start = time.perf_counter()
 
     bm25 = BM25Okapi(corpus)
 
@@ -218,14 +225,11 @@ def build_bm25(metadata):
     )
 
     print(
-        f"BM25 hazır "
-        f"({elapsed:.4f} sn)"
+        f"BM25 hazır ({elapsed:.4f} sn)"
     )
 
-    return (
-        bm25,
-        elapsed,
-    )
+    return bm25, elapsed
+
 
 # --------------------------------------------------
 # SEMANTIC SEARCH
@@ -238,14 +242,19 @@ def semantic_search(
     top_k,
 ):
     """
-    FAISS üzerinde semantic search yapar.
+    BGE-M3 + FAISS ile semantic search yapar.
     """
+
+    start = time.perf_counter()
 
     query_embedding = model.encode(
         [question],
-        convert_to_numpy=True,
-        normalize_embeddings=True,
-    ).astype("float32")
+        batch_size=1,
+    )
+
+    query_embedding = query_embedding.astype(
+        "float32"
+    )
 
     scores, indices = index.search(
         query_embedding,
@@ -258,12 +267,26 @@ def semantic_search(
         indices[0],
         scores[0],
     ):
+
+        if idx < 0:
+            continue
+
         results.append(
             (
                 int(idx),
                 float(score),
             )
         )
+
+    elapsed = (
+        time.perf_counter()
+        - start
+    )
+
+    print(
+        f"Semantic Search : "
+        f"{elapsed:.4f} sn"
+    )
 
     return results
 
@@ -277,11 +300,13 @@ def bm25_search(
     question,
     top_k,
 ):
-    """
-    BM25 retrieval yapar.
-    """
+    """BM25 retrieval gerçekleştirir."""
 
-    query_tokens = tokenize(question)
+    start = time.perf_counter()
+
+    query_tokens = tokenize(
+        question
+    )
 
     scores = bm25.get_scores(
         query_tokens
@@ -293,18 +318,26 @@ def bm25_search(
         reverse=True,
     )[:top_k]
 
-    results = []
-
-    for idx, score in ranked:
-
-        results.append(
-            (
-                int(idx),
-                float(score),
-            )
+    results = [
+        (
+            int(idx),
+            float(score),
         )
+        for idx, score in ranked
+    ]
+
+    elapsed = (
+        time.perf_counter()
+        - start
+    )
+
+    print(
+        f"BM25 Search    : "
+        f"{elapsed:.4f} sn"
+    )
 
     return results
+
 
 # --------------------------------------------------
 # RECIPROCAL RANK FUSION
@@ -315,36 +348,49 @@ def reciprocal_rank_fusion(
     bm25_results,
 ):
     """
-    Semantic ve BM25 sonuçlarını
+    Semantic Search ve BM25 sonuçlarını
     Reciprocal Rank Fusion ile birleştirir.
     """
 
     scores = {}
 
+    # Semantic sonuçları
     for rank, (idx, _) in enumerate(
         semantic_results,
         start=1,
     ):
 
+        idx = int(idx)
+
         scores[idx] = (
-            scores.get(idx, 0)
-            + 1 / (RRF_K + rank)
+            scores.get(idx, 0.0)
+            + 1.0 / (RRF_K + rank)
         )
 
+    # BM25 sonuçları
     for rank, (idx, _) in enumerate(
         bm25_results,
         start=1,
     ):
 
+        idx = int(idx)
+
         scores[idx] = (
-            scores.get(idx, 0)
-            + 1 / (RRF_K + rank)
+            scores.get(idx, 0.0)
+            + 1.0 / (RRF_K + rank)
         )
 
-    return scores
+    ranked = sorted(
+        scores.items(),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+
+    return ranked
+
 
 # --------------------------------------------------
-# HYBRID SEARCH (RRF)
+# HYBRID SEARCH + RERANKER
 # --------------------------------------------------
 
 def hybrid_search(
@@ -356,68 +402,129 @@ def hybrid_search(
     top_k,
 ):
     """
-    Semantic Search ve BM25 sonuçlarını
-    Reciprocal Rank Fusion ile birleştirir.
+    Tam retrieval pipeline:
+
+    1. Semantic Search
+    2. BM25
+    3. RRF
+    4. Reranker
     """
 
-    semantic_results = semantic_search(
-        model,
-        faiss_index,
-        question,
+    print("\n" + "-" * 70)
+    print("SEMANTIC SEARCH + BM25")
+    print("-" * 70)
+
+    # Retrieval aşamasında daha fazla aday alıyoruz.
+    retrieval_k = max(
         top_k * 3,
+        15,
     )
+
+    # --------------------------------------------------
+    # 1. SEMANTIC SEARCH
+    # --------------------------------------------------
+
+    semantic_results = semantic_search(
+        model=model,
+        index=faiss_index,
+        question=question,
+        top_k=retrieval_k,
+    )
+
+    # --------------------------------------------------
+    # 2. BM25
+    # --------------------------------------------------
 
     bm25_results = bm25_search(
-        bm25,
-        question,
-        top_k * 3,
+        bm25=bm25,
+        question=question,
+        top_k=retrieval_k,
     )
 
-    rrf_scores = reciprocal_rank_fusion(
+    # --------------------------------------------------
+    # 3. RRF
+    # --------------------------------------------------
+
+    rrf_results = reciprocal_rank_fusion(
         semantic_results,
         bm25_results,
     )
 
-    ranked = sorted(
-        rrf_scores.items(),
-        key=lambda x: x[1],
-        reverse=True,
+    # Reranker için aday sayısı
+    reranker_k = max(
+        top_k * 2,
+        10,
     )
 
-    # -----------------------------
-    # İlk adayları al
-    # -----------------------------
+    candidates = rrf_results[
+        :reranker_k
+    ]
 
-    candidates = ranked[:top_k]
+    print(
+        f"\nRRF aday sayısı : "
+        f"{len(candidates)}"
+    )
+
+    print("\nRRF ilk adaylar:")
+
+    for rank, (idx, score) in enumerate(
+        candidates[:5],
+        start=1,
+    ):
+
+        print(
+            f"{rank}. Chunk {idx} "
+            f"| RRF: {score:.6f}"
+        )
+
+    if not candidates:
+        return []
+
+    # --------------------------------------------------
+    # 4. RERANKER
+    # --------------------------------------------------
 
     documents = [
-        metadata[idx]["text"]
+        metadata[int(idx)]["text"]
         for idx, _ in candidates
     ]
 
-    # -----------------------------
-    # Reranker
-    # -----------------------------
+    print("\nReranker çalıştırılıyor...")
+
+    from src.reranker import rerank
 
     reranked = rerank(
         question,
         documents,
     )
 
+    # --------------------------------------------------
+    # 5. SONUÇLARI EŞLEŞTİR
+    # --------------------------------------------------
+
     final_results = []
 
-    for doc_index, rerank_score in reranked[:5]:
+    for doc_index, rerank_score in reranked:
 
-        original_index = candidates[doc_index][0]
+        if doc_index >= len(candidates):
+            continue
+
+        original_index = int(
+            candidates[doc_index][0]
+        )
 
         final_results.append(
             (
                 metadata[original_index],
-                rerank_score,
+                float(rerank_score),
             )
         )
 
+        if len(final_results) >= top_k:
+            break
+
     return final_results
+
 
 # --------------------------------------------------
 # SONUÇLARI YAZDIR
@@ -433,7 +540,9 @@ def print_results(
     print("HYBRID SEARCH SONUCU")
     print("=" * 70)
 
-    print(f"\nSoru: {question}")
+    print(
+        f"\nSoru: {question}"
+    )
 
     print(
         f"\nToplam sonuç: {len(results)}"
@@ -449,31 +558,41 @@ def print_results(
         start=1,
     ):
 
-        print(f"\n{rank}. SONUÇ")
-
         print(
-            f"Reranker Skoru : {score:.4f}"
-      )
-
-        print(
-            f"Kaynak         : {chunk['source']}"
+            f"\n{rank}. SONUÇ"
         )
 
         print(
-            f"Chunk ID       : {chunk['chunk_id']}"
+            f"Reranker Skoru : "
+            f"{score:.4f}"
         )
 
         print(
-            f"Chunk Index    : {chunk['chunk_index']}"
+            f"Kaynak         : "
+            f"{chunk.get('source', '-')}"
         )
 
         print(
-            f"Token Sayısı   : {chunk['token_count']}"
+            f"Chunk ID       : "
+            f"{chunk.get('chunk_id', '-')}"
+        )
+
+        print(
+            f"Chunk Index    : "
+            f"{chunk.get('chunk_index', '-')}"
+        )
+
+        print(
+            f"Token Sayısı   : "
+            f"{chunk.get('token_count', '-')}"
         )
 
         print("-" * 70)
 
-        text = chunk["text"].strip()
+        text = chunk.get(
+            "text",
+            "",
+        ).strip()
 
         if len(text) > 700:
             text = text[:700] + " ..."
@@ -499,23 +618,83 @@ def main():
     print("HYBRID SEARCH")
     print("=" * 70)
 
-    print(f"\nModel            : {MODEL_NAME}")
-    print(f"Chunk Stratejisi : {args.strategy}")
-    print(f"Top-K            : {args.top_k}")
+    print(
+        f"\nModel            : {MODEL_NAME}"
+    )
+
+    print(
+        f"Chunk Stratejisi : "
+        f"{args.strategy}"
+    )
+
+    print(
+        f"Top-K            : "
+        f"{args.top_k}"
+    )
+
+    # --------------------------------------------------
+    # BGE-M3
+    # --------------------------------------------------
+    # ÖNEMLİ:
+    # BGE-M3, FAISS index yüklenmeden ÖNCE
+    # oluşturuluyor.
+    # Windows'taki native kütüphane çakışmasını
+    # önlemek için bu sıra korunmalıdır.
+
+    model, model_time = load_model()
+
+    # --------------------------------------------------
+    # FAISS
+    # --------------------------------------------------
 
     faiss_index = load_index(
         index_path
     )
 
+    # --------------------------------------------------
+    # METADATA
+    # --------------------------------------------------
+
     metadata = load_metadata(
         metadata_path
     )
 
-    model, _ = load_model()
+    # --------------------------------------------------
+    # KONTROLLER
+    # --------------------------------------------------
 
-    bm25, _ = build_bm25(
+    if faiss_index.ntotal != len(metadata):
+
+        raise ValueError(
+            "FAISS index ve metadata "
+            "sayıları eşleşmiyor!"
+        )
+
+    # --------------------------------------------------
+    # BM25
+    # --------------------------------------------------
+
+    bm25, bm25_time = build_bm25(
         metadata
     )
+
+    print("\n" + "=" * 70)
+    print("SİSTEM HAZIR")
+    print("=" * 70)
+
+    print(
+        f"BGE-M3 yükleme : "
+        f"{model_time:.2f} sn"
+    )
+
+    print(
+        f"BM25 oluşturma  : "
+        f"{bm25_time:.4f} sn"
+    )
+
+    # --------------------------------------------------
+    # SORU DÖNGÜSÜ
+    # --------------------------------------------------
 
     while True:
 
@@ -543,21 +722,44 @@ def main():
 
             continue
 
+        # --------------------------------------------------
+        # SEARCH
+        # --------------------------------------------------
+
         start = time.perf_counter()
 
-        results = hybrid_search(
-         model=model,
-         faiss_index=faiss_index,
-         bm25=bm25,
-         metadata=metadata,
-         question=question,
-         top_k=max(args.top_k * 2, 10),    
-        )
+        try:
+
+            results = hybrid_search(
+                model=model,
+                faiss_index=faiss_index,
+                bm25=bm25,
+                metadata=metadata,
+                question=question,
+                top_k=args.top_k,
+            )
+
+        except Exception as exc:
+
+            print(
+                "\nARAMA SIRASINDA HATA:"
+            )
+
+            print(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            )
+
+            continue
 
         elapsed = (
             time.perf_counter()
             - start
         )
+
+        # --------------------------------------------------
+        # RESULTS
+        # --------------------------------------------------
 
         print_results(
             question,
@@ -565,7 +767,7 @@ def main():
         )
 
         print(
-            f"\nHybrid arama süresi : "
+            f"\nToplam Hybrid Search süresi : "
             f"{elapsed:.4f} sn"
         )
 
@@ -576,4 +778,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
