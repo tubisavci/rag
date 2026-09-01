@@ -1,0 +1,31 @@
+﻿strategy,question_number,question,expected_source,top1,recall_at_5,mrr_at_5,search_time_seconds,top1_source
+300_50,1,Türkiye'nin çevre sorunları nelerdir?,cevre_bakanlik,1,1,1.0,0.001345,cevre_bakanlik
+300_50,2,Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?,egitim_meb,1,1,1.0,0.000743,egitim_meb
+300_50,3,Enerji verimliliği neden önemlidir?,enerji_etkb,1,1,1.0,0.00063,enerji_etkb
+300_50,4,Gıda okuryazarlığı nedir?,gida_tarimorman,1,1,1.0,0.000877,gida_tarimorman
+300_50,5,Siber güvenlik nedir?,siber_guvenlik,1,1,1.0,0.000559,siber_guvenlik
+300_50,6,İklim değişikliğinin tarıma etkileri nelerdir?,tarim_bakanlik,1,1,1.0,0.000719,tarim_bakanlik
+300_50,7,Tüketici haklarının amacı nedir?,tuketici_ticaretbakanligi,1,1,1.0,0.001016,tuketici_ticaretbakanligi
+300_50,8,Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?,uzay_tubitak,1,1,1.0,0.001025,uzay_tubitak
+300_50,9,Ulusal Yapay Zeka Stratejisinin amacı nedir?,yapayzeka,1,1,1.0,0.000706,yapayzeka
+300_50,10,Türk Dil Kurumunun faaliyetleri nelerdir?,dil_tdk,1,1,1.0,0.000638,dil_tdk
+500_100,1,Türkiye'nin çevre sorunları nelerdir?,cevre_bakanlik,1,1,1.0,0.000483,cevre_bakanlik
+500_100,2,Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?,egitim_meb,1,1,1.0,0.000482,egitim_meb
+500_100,3,Enerji verimliliği neden önemlidir?,enerji_etkb,1,1,1.0,0.000311,enerji_etkb
+500_100,4,Gıda okuryazarlığı nedir?,gida_tarimorman,1,1,1.0,0.000273,gida_tarimorman
+500_100,5,Siber güvenlik nedir?,siber_guvenlik,1,1,1.0,0.000359,siber_guvenlik
+500_100,6,İklim değişikliğinin tarıma etkileri nelerdir?,tarim_bakanlik,1,1,1.0,0.000515,tarim_bakanlik
+500_100,7,Tüketici haklarının amacı nedir?,tuketici_ticaretbakanligi,1,1,1.0,0.000384,tuketici_ticaretbakanligi
+500_100,8,Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?,uzay_tubitak,1,1,1.0,0.000294,uzay_tubitak
+500_100,9,Ulusal Yapay Zeka Stratejisinin amacı nedir?,yapayzeka,1,1,1.0,0.000241,yapayzeka
+500_100,10,Türk Dil Kurumunun faaliyetleri nelerdir?,dil_tdk,1,1,1.0,0.00025,dil_tdk
+800_150,1,Türkiye'nin çevre sorunları nelerdir?,cevre_bakanlik,1,1,1.0,0.000343,cevre_bakanlik
+800_150,2,Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?,egitim_meb,1,1,1.0,0.000262,egitim_meb
+800_150,3,Enerji verimliliği neden önemlidir?,enerji_etkb,1,1,1.0,0.000319,enerji_etkb
+800_150,4,Gıda okuryazarlığı nedir?,gida_tarimorman,1,1,1.0,0.000283,gida_tarimorman
+800_150,5,Siber güvenlik nedir?,siber_guvenlik,1,1,1.0,0.000283,siber_guvenlik
+800_150,6,İklim değişikliğinin tarıma etkileri nelerdir?,tarim_bakanlik,1,1,1.0,0.0002,tarim_bakanlik
+800_150,7,Tüketici haklarının amacı nedir?,tuketici_ticaretbakanligi,1,1,1.0,0.000166,tuketici_ticaretbakanligi
+800_150,8,Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?,uzay_tubitak,1,1,1.0,0.00015,uzay_tubitak
+800_150,9,Ulusal Yapay Zeka Stratejisinin amacı nedir?,yapayzeka,1,1,1.0,0.000162,yapayzeka
+800_150,10,Türk Dil Kurumunun faaliyetleri nelerdir?,dil_tdk,1,1,1.0,0.000361,dil_tdk

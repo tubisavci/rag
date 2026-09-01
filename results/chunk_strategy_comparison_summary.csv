@@ -1,0 +1,4 @@
+﻿strategy,chunk_count,top1_accuracy,recall_at_5,mrr_at_5,average_search_time_seconds
+300_50,3039,1.0,1.0,1.0,0.000826
+500_100,1900,1.0,1.0,1.0,0.000359
+800_150,1170,1.0,1.0,1.0,0.000253
