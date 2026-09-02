@@ -9,16 +9,20 @@ python -m src.search_hybrid --strategy 800_150
 """
 
 import argparse
+import gc
 import json
 import re
 import time
 from pathlib import Path
+
+import torch
 
 from src.embedding_model import BGEEmbeddingModel
 
 import faiss
 import numpy as np
 from rank_bm25 import BM25Okapi
+
 
 # --------------------------------------------------
 # AYARLAR
@@ -152,6 +156,11 @@ def load_metadata(metadata_path):
 
         metadata = json.load(file)
 
+    if not isinstance(metadata, list):
+        raise ValueError(
+            "Metadata list formatında olmalıdır."
+        )
+
     print(
         f"Toplam metadata : {len(metadata)}"
     )
@@ -172,7 +181,10 @@ def load_model():
 
     model = BGEEmbeddingModel()
 
-    elapsed = time.perf_counter() - start
+    elapsed = (
+        time.perf_counter()
+        - start
+    )
 
     print(
         f"Model hazır "
@@ -183,6 +195,97 @@ def load_model():
         model,
         elapsed,
     )
+
+
+# --------------------------------------------------
+# MODEL DEVICE YÖNETİMİ
+# --------------------------------------------------
+
+def move_embedding_model_to_gpu(model):
+    """
+    BGE-M3 modelini GPU'ya taşır.
+
+    Model yeniden yüklenmez.
+    Sadece mevcut model CPU'dan GPU'ya alınır.
+    """
+
+    if not torch.cuda.is_available():
+        return
+
+    if model.device != "cuda":
+        print("\nBGE-M3 GPU'ya taşınıyor...")
+
+        start = time.perf_counter()
+
+        model.model.to("cuda")
+        model.device = "cuda"
+
+        elapsed = (
+            time.perf_counter()
+            - start
+        )
+
+        print(
+            f"BGE-M3 GPU hazır "
+            f"({elapsed:.4f} sn)"
+        )
+
+
+def move_embedding_model_to_cpu(model):
+    """
+    Semantic retrieval tamamlandıktan sonra
+    BGE-M3 modelini CPU'ya taşır.
+
+    Böylece reranker için GPU belleği serbest bırakılır.
+    """
+
+    if not torch.cuda.is_available():
+        return
+
+    if model.device == "cuda":
+
+        print("\nBGE-M3 CPU'ya taşınıyor...")
+
+        start = time.perf_counter()
+
+        model.model.to("cpu")
+        model.device = "cpu"
+
+        # Python referanslarını temizle
+        gc.collect()
+
+        # CUDA cache temizle
+        torch.cuda.empty_cache()
+
+        elapsed = (
+            time.perf_counter()
+            - start
+        )
+
+        allocated = (
+            torch.cuda.memory_allocated()
+            / 1024**2
+        )
+
+        reserved = (
+            torch.cuda.memory_reserved()
+            / 1024**2
+        )
+
+        print(
+            f"BGE-M3 CPU'da "
+            f"({elapsed:.4f} sn)"
+        )
+
+        print(
+            f"GPU belleği : "
+            f"{allocated:.2f} MB"
+        )
+
+        print(
+            f"GPU reserved: "
+            f"{reserved:.2f} MB"
+        )
 
 
 # --------------------------------------------------
@@ -228,7 +331,10 @@ def build_bm25(metadata):
         f"BM25 hazır ({elapsed:.4f} sn)"
     )
 
-    return bm25, elapsed
+    return (
+        bm25,
+        elapsed,
+    )
 
 
 # --------------------------------------------------
@@ -246,6 +352,11 @@ def semantic_search(
     """
 
     start = time.perf_counter()
+
+    # Yeni sorgu için model GPU'da olmalı.
+    move_embedding_model_to_gpu(
+        model
+    )
 
     query_embedding = model.encode(
         [question],
@@ -307,6 +418,9 @@ def bm25_search(
     query_tokens = tokenize(
         question
     )
+
+    if not query_tokens:
+        return []
 
     scores = bm25.get_scores(
         query_tokens
@@ -407,14 +521,14 @@ def hybrid_search(
     1. Semantic Search
     2. BM25
     3. RRF
-    4. Reranker
+    4. BGE-M3 GPU -> CPU
+    5. Reranker
     """
 
     print("\n" + "-" * 70)
     print("SEMANTIC SEARCH + BM25")
     print("-" * 70)
 
-    # Retrieval aşamasında daha fazla aday alıyoruz.
     retrieval_k = max(
         top_k * 3,
         15,
@@ -450,7 +564,6 @@ def hybrid_search(
         bm25_results,
     )
 
-    # Reranker için aday sayısı
     reranker_k = max(
         top_k * 2,
         10,
@@ -481,7 +594,15 @@ def hybrid_search(
         return []
 
     # --------------------------------------------------
-    # 4. RERANKER
+    # 4. RERANKER ÖNCESİ GPU TEMİZLİĞİ
+    # --------------------------------------------------
+
+    move_embedding_model_to_cpu(
+        model
+    )
+
+    # --------------------------------------------------
+    # 5. RERANKER
     # --------------------------------------------------
 
     documents = [
@@ -499,7 +620,7 @@ def hybrid_search(
     )
 
     # --------------------------------------------------
-    # 5. SONUÇLARI EŞLEŞTİR
+    # 6. SONUÇLARI EŞLEŞTİR
     # --------------------------------------------------
 
     final_results = []
@@ -610,6 +731,15 @@ def main():
 
     args = parse_arguments()
 
+    # --------------------------------------------------
+    # ARGUMENT KONTROLÜ
+    # --------------------------------------------------
+
+    if args.top_k <= 0:
+        raise ValueError(
+            "top_k değeri 0'dan büyük olmalıdır."
+        )
+
     index_path, metadata_path = get_paths(
         args.strategy
     )
@@ -635,11 +765,6 @@ def main():
     # --------------------------------------------------
     # BGE-M3
     # --------------------------------------------------
-    # ÖNEMLİ:
-    # BGE-M3, FAISS index yüklenmeden ÖNCE
-    # oluşturuluyor.
-    # Windows'taki native kütüphane çakışmasını
-    # önlemek için bu sıra korunmalıdır.
 
     model, model_time = load_model()
 
@@ -668,6 +793,12 @@ def main():
         raise ValueError(
             "FAISS index ve metadata "
             "sayıları eşleşmiyor!"
+        )
+
+    if faiss_index.d != 1024:
+
+        raise ValueError(
+            "FAISS vektör boyutu 1024 olmalıdır."
         )
 
     # --------------------------------------------------

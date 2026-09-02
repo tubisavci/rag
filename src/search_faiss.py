@@ -15,10 +15,7 @@ import json
 import time
 from pathlib import Path
 
-import faiss
-import numpy as np
-from sentence_transformers import SentenceTransformer
-from src.embedding_model import BGEEmbeddingModel
+from embedding_model import BGEEmbeddingModel
 
 # --------------------------------------------------
 # AYARLAR
@@ -68,7 +65,9 @@ def parse_arguments():
 def get_paths(strategy):
     """Dosya yollarını oluşturur."""
 
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = (
+        Path(__file__).resolve().parent.parent
+    )
 
     index_path = (
         project_root
@@ -95,6 +94,9 @@ def get_paths(strategy):
 def load_index(index_path):
     """FAISS indexini yükler."""
 
+    import faiss
+    import numpy as np
+
     print("\nFAISS index yükleniyor...")
 
     if not index_path.exists():
@@ -112,7 +114,7 @@ def load_index(index_path):
     )
 
     print(
-        f"Index başarıyla yüklendi."
+        "Index başarıyla yüklendi."
     )
 
     print(
@@ -153,16 +155,16 @@ def load_metadata(metadata_path):
 # --------------------------------------------------
 
 def load_model():
-    """Embedding modelini yükler."""
+    """BGE-M3 embedding modelini yükler."""
 
-    print("\nEmbedding modeli yükleniyor...")
+    print(
+        "\nBGE-M3 embedding modeli "
+        "yükleniyor..."
+    )
 
     start = time.perf_counter()
 
-    model = SentenceTransformer(
-        MODEL_NAME,
-        device="cpu",
-    )
+    model = BGEEmbeddingModel()
 
     load_time = (
         time.perf_counter()
@@ -188,12 +190,11 @@ def embed_query(
     model,
     question,
 ):
-    """Sorguyu embeddinge dönüştürür."""
+    """Sorguyu BGE-M3 embeddingine dönüştürür."""
 
     embedding = model.encode(
         [question],
-        convert_to_numpy=True,
-        normalize_embeddings=True,
+        batch_size=1,
     ).astype(
         "float32"
     )
@@ -210,7 +211,7 @@ def search(
     query_embedding,
     top_k,
 ):
-    """Semantic search."""
+    """FAISS üzerinde semantic search yapar."""
 
     start = time.perf_counter()
 
@@ -230,6 +231,7 @@ def search(
         elapsed,
     )
 
+
 # --------------------------------------------------
 # SONUÇLARI YAZDIR
 # --------------------------------------------------
@@ -247,7 +249,9 @@ def print_results(
     print("SEMANTIC SEARCH SONUCU")
     print("=" * 70)
 
-    print(f"\nSoru: {question}")
+    print(
+        f"\nSoru: {question}"
+    )
 
     print(
         f"\nToplam sonuç: "
@@ -262,13 +266,23 @@ def print_results(
     print("\n" + "=" * 70)
 
     for rank, (idx, score) in enumerate(
-        zip(indices[0], scores[0]),
+        zip(
+            indices[0],
+            scores[0],
+        ),
         start=1,
     ):
 
-        chunk = metadata[idx]
+        # FAISS bazı durumlarda -1
+        # döndürebilir.
+        if idx < 0:
+            continue
 
-        print(f"\n{rank}. SONUÇ")
+        chunk = metadata[int(idx)]
+
+        print(
+            f"\n{rank}. SONUÇ"
+        )
 
         print(
             f"Benzerlik Skoru : "
@@ -300,7 +314,10 @@ def print_results(
         text = chunk["text"].strip()
 
         if len(text) > 700:
-            text = text[:700] + " ..."
+            text = (
+                text[:700]
+                + " ..."
+            )
 
         print(text)
 
@@ -315,8 +332,10 @@ def main():
 
     args = parse_arguments()
 
-    index_path, metadata_path = get_paths(
-        args.strategy
+    index_path, metadata_path = (
+        get_paths(
+            args.strategy
+        )
     )
 
     print("=" * 70)
@@ -324,32 +343,41 @@ def main():
     print("=" * 70)
 
     print(
-        f"\nModel            : {MODEL_NAME}"
+        f"\nModel            : "
+        f"{MODEL_NAME}"
     )
 
     print(
-        f"Chunk Stratejisi : {args.strategy}"
+        f"Chunk Stratejisi : "
+        f"{args.strategy}"
     )
 
     print(
-        f"Top-K            : {args.top_k}"
+        f"Top-K            : "
+        f"{args.top_k}"
     )
 
     print(
-        f"Index            : {index_path}"
+        f"Index            : "
+        f"{index_path}"
     )
 
     print(
-        f"Metadata         : {metadata_path}"
+        f"Metadata         : "
+        f"{metadata_path}"
     )
 
-    index = load_index(
-        index_path
-    )
+    # --------------------------------------------------
+    # MODEL
+    # --------------------------------------------------
 
-    metadata = load_metadata(
-        metadata_path
-    )
+    # ÖNEMLİ:
+    # BGE-M3 modeli FAISS indexinden
+    # önce yükleniyor.
+    #
+    # Windows'taki native kütüphane
+    # çakışmasını önlemek için bu sıra
+    # korunmalıdır.
 
     model, model_time = load_model()
 
@@ -358,10 +386,47 @@ def main():
         f"{model_time:.2f} sn"
     )
 
+    # --------------------------------------------------
+    # FAISS INDEX
+    # --------------------------------------------------
+
+    index = load_index(
+        index_path
+    )
+
+    # --------------------------------------------------
+    # METADATA
+    # --------------------------------------------------
+
+    metadata = load_metadata(
+        metadata_path
+    )
+
+    # --------------------------------------------------
+    # KONTROLLER
+    # --------------------------------------------------
+
+    if index.ntotal != len(metadata):
+
+        raise ValueError(
+            "FAISS index ve metadata "
+            "sayıları eşleşmiyor!"
+        )
+
+    print(
+        "\nFAISS index ve metadata "
+        "kontrolü başarılı."
+    )
+
+    # --------------------------------------------------
+    # SORU DÖNGÜSÜ
+    # --------------------------------------------------
+
     while True:
 
         print(
-            "\nÇıkmak için 'q' yazabilirsiniz."
+            "\nÇıkmak için 'q' "
+            "yazabilirsiniz."
         )
 
         question = input(
@@ -384,28 +449,53 @@ def main():
 
             continue
 
-        query_embedding = embed_query(
-            model,
-            question,
-        )
+        try:
 
-        (
-            scores,
-            indices,
-            search_time,
-        ) = search(
-            index,
-            query_embedding,
-            args.top_k,
-        )
+            # --------------------------------------------------
+            # QUERY EMBEDDING
+            # --------------------------------------------------
 
-        print_results(
-            question,
-            metadata,
-            scores,
-            indices,
-            search_time,
-        )
+            query_embedding = embed_query(
+                model,
+                question,
+            )
+
+            # --------------------------------------------------
+            # SEMANTIC SEARCH
+            # --------------------------------------------------
+
+            (
+                scores,
+                indices,
+                search_time,
+            ) = search(
+                index,
+                query_embedding,
+                args.top_k,
+            )
+
+            # --------------------------------------------------
+            # RESULTS
+            # --------------------------------------------------
+
+            print_results(
+                question,
+                metadata,
+                scores,
+                indices,
+                search_time,
+            )
+
+        except Exception as exc:
+
+            print(
+                "\nARAMA SIRASINDA HATA:"
+            )
+
+            print(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            )
 
 
 # --------------------------------------------------
