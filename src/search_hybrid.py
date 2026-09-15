@@ -17,7 +17,7 @@ from pathlib import Path
 
 import torch
 
-from src.embedding_model import BGEEmbeddingModel
+from embedding_model import BGEEmbeddingModel
 
 import faiss
 import numpy as np
@@ -612,7 +612,7 @@ def hybrid_search(
 
     print("\nReranker çalıştırılıyor...")
 
-    from src.reranker import rerank
+    from reranker import rerank
 
     reranked = rerank(
         question,

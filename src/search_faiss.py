@@ -17,11 +17,14 @@ from pathlib import Path
 
 from embedding_model import BGEEmbeddingModel
 
+
 # --------------------------------------------------
 # AYARLAR
 # --------------------------------------------------
 
 MODEL_NAME = "BAAI/bge-m3"
+
+EMBEDDING_DIMENSION = 1024
 
 TOP_K = 5
 
@@ -55,7 +58,14 @@ def parse_arguments():
         help="Getirilecek sonuç sayısı",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.top_k <= 0:
+        parser.error(
+            "top_k değeri 0'dan büyük olmalıdır."
+        )
+
+    return args
 
 
 # --------------------------------------------------
@@ -63,10 +73,13 @@ def parse_arguments():
 # --------------------------------------------------
 
 def get_paths(strategy):
-    """Dosya yollarını oluşturur."""
+    """FAISS index ve metadata dosya yollarını oluşturur."""
 
     project_root = (
-        Path(__file__).resolve().parent.parent
+        Path(__file__)
+        .resolve()
+        .parent
+        .parent
     )
 
     index_path = (
@@ -97,10 +110,15 @@ def load_index(index_path):
     import faiss
     import numpy as np
 
-    print("\nFAISS index yükleniyor...")
+    print(
+        "\nFAISS index yükleniyor..."
+    )
 
     if not index_path.exists():
-        raise FileNotFoundError(index_path)
+        raise FileNotFoundError(
+            f"FAISS index bulunamadı: "
+            f"{index_path}"
+        )
 
     with index_path.open("rb") as file:
 
@@ -113,12 +131,30 @@ def load_index(index_path):
         serialized
     )
 
+    if index.ntotal <= 0:
+        raise ValueError(
+            "FAISS index boş."
+        )
+
+    if index.d != EMBEDDING_DIMENSION:
+        raise ValueError(
+            f"FAISS vektör boyutu "
+            f"{index.d}, beklenen boyut "
+            f"{EMBEDDING_DIMENSION}."
+        )
+
     print(
         "Index başarıyla yüklendi."
     )
 
     print(
-        f"Toplam vektör: {index.ntotal}"
+        f"Toplam vektör: "
+        f"{index.ntotal}"
+    )
+
+    print(
+        f"Vektör boyutu: "
+        f"{index.d}"
     )
 
     return index
@@ -131,10 +167,15 @@ def load_index(index_path):
 def load_metadata(metadata_path):
     """Metadata dosyasını yükler."""
 
-    print("\nMetadata yükleniyor...")
+    print(
+        "\nMetadata yükleniyor..."
+    )
 
     if not metadata_path.exists():
-        raise FileNotFoundError(metadata_path)
+        raise FileNotFoundError(
+            f"Metadata bulunamadı: "
+            f"{metadata_path}"
+        )
 
     with metadata_path.open(
         "r",
@@ -143,8 +184,55 @@ def load_metadata(metadata_path):
 
         metadata = json.load(file)
 
+    if not isinstance(
+        metadata,
+        list,
+    ):
+        raise ValueError(
+            "Metadata formatı liste "
+            "olmalıdır."
+        )
+
+    if not metadata:
+        raise ValueError(
+            "Metadata boş olamaz."
+        )
+
+    for index, chunk in enumerate(metadata):
+
+        if not isinstance(
+            chunk,
+            dict,
+        ):
+            raise ValueError(
+                f"{index}. metadata kaydı "
+                f"dictionary olmalıdır."
+            )
+
+        required_fields = [
+            "chunk_id",
+            "source",
+            "chunk_index",
+            "token_count",
+            "text",
+        ]
+
+        missing_fields = [
+            field
+            for field in required_fields
+            if field not in chunk
+        ]
+
+        if missing_fields:
+            raise ValueError(
+                f"{index}. metadata kaydında "
+                f"eksik alanlar: "
+                f"{missing_fields}"
+            )
+
     print(
-        f"Toplam metadata: {len(metadata)}"
+        f"Toplam metadata: "
+        f"{len(metadata)}"
     )
 
     return metadata
@@ -192,12 +280,38 @@ def embed_query(
 ):
     """Sorguyu BGE-M3 embeddingine dönüştürür."""
 
+    if not isinstance(
+        question,
+        str,
+    ):
+        raise TypeError(
+            "question string olmalıdır."
+        )
+
+    if not question.strip():
+        raise ValueError(
+            "Soru boş olamaz."
+        )
+
     embedding = model.encode(
         [question],
         batch_size=1,
     ).astype(
         "float32"
     )
+
+    if embedding.ndim != 2:
+        raise ValueError(
+            "Query embedding 2 boyutlu "
+            "olmalıdır."
+        )
+
+    if embedding.shape[1] != EMBEDDING_DIMENSION:
+        raise ValueError(
+            f"Query embedding boyutu "
+            f"{embedding.shape[1]}, beklenen "
+            f"{EMBEDDING_DIMENSION}."
+        )
 
     return embedding
 
@@ -213,11 +327,34 @@ def search(
 ):
     """FAISS üzerinde semantic search yapar."""
 
+    if top_k <= 0:
+        raise ValueError(
+            "top_k değeri 0'dan büyük "
+            "olmalıdır."
+        )
+
+    if query_embedding.ndim != 2:
+        raise ValueError(
+            "Query embedding 2 boyutlu "
+            "olmalıdır."
+        )
+
+    if query_embedding.shape[1] != index.d:
+        raise ValueError(
+            "Query embedding boyutu ile "
+            "FAISS index boyutu eşleşmiyor."
+        )
+
+    actual_top_k = min(
+        top_k,
+        index.ntotal,
+    )
+
     start = time.perf_counter()
 
     scores, indices = index.search(
         query_embedding,
-        top_k,
+        actual_top_k,
     )
 
     elapsed = (
@@ -245,17 +382,31 @@ def print_results(
 ):
     """Semantic search sonuçlarını yazdırır."""
 
-    print("\n" + "=" * 70)
-    print("SEMANTIC SEARCH SONUCU")
-    print("=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "SEMANTIC SEARCH SONUCU"
+    )
+
+    print(
+        "=" * 70
+    )
 
     print(
         f"\nSoru: {question}"
     )
 
+    valid_results = [
+        idx
+        for idx in indices[0]
+        if idx >= 0
+    ]
+
     print(
         f"\nToplam sonuç: "
-        f"{len(indices[0])}"
+        f"{len(valid_results)}"
     )
 
     print(
@@ -263,9 +414,14 @@ def print_results(
         f"{search_time:.4f} saniye"
     )
 
-    print("\n" + "=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
 
-    for rank, (idx, score) in enumerate(
+    for rank, (
+        idx,
+        score,
+    ) in enumerate(
         zip(
             indices[0],
             scores[0],
@@ -273,12 +429,20 @@ def print_results(
         start=1,
     ):
 
-        # FAISS bazı durumlarda -1
-        # döndürebilir.
         if idx < 0:
             continue
 
-        chunk = metadata[int(idx)]
+        idx = int(idx)
+
+        if idx >= len(metadata):
+            print(
+                f"\nUyarı: FAISS sonucu "
+                f"geçersiz index döndürdü: "
+                f"{idx}"
+            )
+            continue
+
+        chunk = metadata[idx]
 
         print(
             f"\n{rank}. SONUÇ"
@@ -291,27 +455,32 @@ def print_results(
 
         print(
             f"Kaynak          : "
-            f"{chunk['source']}"
+            f"{chunk.get('source', '-')}"
         )
 
         print(
             f"Chunk ID        : "
-            f"{chunk['chunk_id']}"
+            f"{chunk.get('chunk_id', '-')}"
         )
 
         print(
             f"Chunk Index     : "
-            f"{chunk['chunk_index']}"
+            f"{chunk.get('chunk_index', '-')}"
         )
 
         print(
             f"Token Sayısı    : "
-            f"{chunk['token_count']}"
+            f"{chunk.get('token_count', '-')}"
         )
 
-        print("-" * 70)
+        print(
+            "-" * 70
+        )
 
-        text = chunk["text"].strip()
+        text = chunk.get(
+            "text",
+            "",
+        ).strip()
 
         if len(text) > 700:
             text = (
@@ -321,7 +490,9 @@ def print_results(
 
         print(text)
 
-        print("-" * 70)
+        print(
+            "-" * 70
+        )
 
 
 # --------------------------------------------------
@@ -332,19 +503,33 @@ def main():
 
     args = parse_arguments()
 
-    index_path, metadata_path = (
-        get_paths(
-            args.strategy
-        )
+    (
+        index_path,
+        metadata_path,
+    ) = get_paths(
+        args.strategy
     )
 
-    print("=" * 70)
-    print("FAISS SEMANTIC SEARCH")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "FAISS SEMANTIC SEARCH"
+    )
+
+    print(
+        "=" * 70
+    )
 
     print(
         f"\nModel            : "
         f"{MODEL_NAME}"
+    )
+
+    print(
+        f"Embedding Boyutu : "
+        f"{EMBEDDING_DIMENSION}"
     )
 
     print(
@@ -441,7 +626,7 @@ def main():
 
             break
 
-        if question == "":
+        if not question:
 
             print(
                 "\nBoş soru giremezsiniz."
