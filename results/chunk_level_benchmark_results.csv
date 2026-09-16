@@ -1,0 +1,41 @@
+question,method,precision_at_5,recall_at_5,mrr_at_5,ndcg_at_5
+Türkiye'nin çevre sorunları nelerdir?,semantic,1.0,0.625,1.0,0.8480742992651265
+Türkiye'nin çevre sorunları nelerdir?,bm25,1.0,0.625,1.0,1.0
+Türkiye'nin çevre sorunları nelerdir?,hybrid,1.0,0.625,1.0,1.0
+Türkiye'nin çevre sorunları nelerdir?,reranker,1.0,0.625,1.0,1.0
+Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?,semantic,1.0,0.5555555555555556,1.0,0.9395225786842205
+Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?,bm25,0.6,0.3333333333333333,0.5,0.708995963673403
+Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?,hybrid,0.8,0.4444444444444444,1.0,0.9502537878387615
+Milli Eğitim Bakanlığının 2024 faaliyetleri nelerdir?,reranker,0.8,0.4444444444444444,1.0,0.9413045508496032
+Enerji verimliliği neden önemlidir?,semantic,1.0,0.625,1.0,0.8420809200104147
+Enerji verimliliği neden önemlidir?,bm25,0.8,0.5,1.0,0.9903929125301808
+Enerji verimliliği neden önemlidir?,hybrid,1.0,0.625,1.0,0.8420809200104147
+Enerji verimliliği neden önemlidir?,reranker,1.0,0.625,1.0,0.8420809200104147
+Gıda okuryazarlığı nedir?,semantic,1.0,1.0,1.0,0.989141344633751
+Gıda okuryazarlığı nedir?,bm25,0.2,0.2,0.3333333333333333,0.5
+Gıda okuryazarlığı nedir?,hybrid,0.4,0.4,1.0,0.8772153153380493
+Gıda okuryazarlığı nedir?,reranker,0.4,0.4,1.0,1.0
+Siber güvenlik nedir?,semantic,0.4,0.5,1.0,0.8503449055347546
+Siber güvenlik nedir?,bm25,0.0,0.0,0.0,0.0
+Siber güvenlik nedir?,hybrid,0.6,0.75,1.0,0.8854598815714874
+Siber güvenlik nedir?,reranker,0.6,0.75,1.0,1.0
+İklim değişikliğinin tarıma etkileri nelerdir?,semantic,1.0,0.45454545454545453,1.0,1.0
+İklim değişikliğinin tarıma etkileri nelerdir?,bm25,1.0,0.45454545454545453,1.0,0.7698986984637216
+İklim değişikliğinin tarıma etkileri nelerdir?,hybrid,1.0,0.45454545454545453,1.0,1.0
+İklim değişikliğinin tarıma etkileri nelerdir?,reranker,1.0,0.45454545454545453,1.0,1.0
+Tüketici haklarının amacı nedir?,semantic,0.2,1.0,0.25,0.43067655807339306
+Tüketici haklarının amacı nedir?,bm25,0.0,0.0,0.0,0.0
+Tüketici haklarının amacı nedir?,hybrid,0.0,0.0,0.0,0.0
+Tüketici haklarının amacı nedir?,reranker,0.0,0.0,0.0,0.0
+Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?,semantic,0.6,1.0,1.0,1.0
+Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?,bm25,0.2,0.3333333333333333,0.5,0.6309297535714575
+Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?,hybrid,0.6,1.0,1.0,0.9060254355346823
+Türkiye'nin uzay çalışmaları hangi kurum tarafından yürütülmektedir?,reranker,0.6,1.0,1.0,1.0
+Ulusal Yapay Zeka Stratejisinin amacı nedir?,semantic,1.0,0.7142857142857143,1.0,0.9807710461847231
+Ulusal Yapay Zeka Stratejisinin amacı nedir?,bm25,0.4,0.2857142857142857,0.5,0.6509209298071326
+Ulusal Yapay Zeka Stratejisinin amacı nedir?,hybrid,0.8,0.5714285714285714,0.5,0.6159699112686031
+Ulusal Yapay Zeka Stratejisinin amacı nedir?,reranker,0.8,0.5714285714285714,1.0,0.9751957567060058
+Türk Dil Kurumunun faaliyetleri nelerdir?,semantic,1.0,0.5555555555555556,1.0,1.0
+Türk Dil Kurumunun faaliyetleri nelerdir?,bm25,1.0,0.5555555555555556,1.0,1.0
+Türk Dil Kurumunun faaliyetleri nelerdir?,hybrid,1.0,0.5555555555555556,1.0,1.0
+Türk Dil Kurumunun faaliyetleri nelerdir?,reranker,1.0,0.5555555555555556,1.0,1.0
